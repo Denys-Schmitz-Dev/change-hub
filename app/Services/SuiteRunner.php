@@ -14,7 +14,7 @@ class SuiteRunner
         $directory = storage_path('app/private/suites/'.$run->id);
         File::ensureDirectoryExists($directory);
         $suite = $run->suite;
-        $request = ['repository' => $suite->session->profile['repository'], 'config' => $suite->config, 'grep' => $suite->grep, 'phase' => $run->phase, 'output' => $directory, 'baseURL' => $suite->session->profile['baseURL']];
+        $request = ['repository' => $suite->session->profile['repository'], 'config' => $suite->config, 'grep' => $suite->grep, 'phase' => $run->phase, 'output' => $directory, 'baseURL' => $suite->session->profile['baseURL'], 'captureVideo' => $run->capture_video];
         File::put($directory.'/request.json', json_encode($request, JSON_THROW_ON_ERROR));
         $process = Process::path(base_path())->timeout(240)->run([config('hub.node'), base_path('runner/suite.mjs'), $directory.'/request.json']);
         if (! is_file($directory.'/result.json')) {

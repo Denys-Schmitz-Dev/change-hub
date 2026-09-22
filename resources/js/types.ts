@@ -16,7 +16,7 @@ export interface Run {
     status: string;
     error: string | null;
     created_at: string;
-    metadata: unknown;
+    metadata: { contracts?: ContractSnapshot } | null;
     views: Frame[];
 }
 export interface Project {
@@ -74,6 +74,9 @@ export interface SuiteAttachment {
     contentType: string;
 }
 export interface SuiteCase {
+    coveredFiles?: string[];
+    file?: string;
+    diagnostics?: { console: string[]; network: string[]; warnings: string[] };
     key: string;
     title: string;
     project: string;
@@ -89,12 +92,14 @@ export interface SuiteCase {
     attachments: SuiteAttachment[];
 }
 export interface SuiteRun {
+    capture_video: boolean;
     id: number;
     phase: string;
     status: string;
     error: string | null;
     created_at: string;
     report: {
+        contracts?: ContractSnapshot;
         outcome: string;
         tests: SuiteCase[];
         errors?: string[];
@@ -103,9 +108,31 @@ export interface SuiteRun {
     } | null;
 }
 export interface TestSuite {
+    selected_tests: string[] | null;
+    test_catalog: Pick<SuiteCase, "key" | "file" | "title" | "project">[] | null;
+    capture_video: boolean;
     id: number;
     name: string;
     config: string;
     grep: string | null;
     runs: SuiteRun[];
+}
+
+export type ContractCategory =
+    "api" | "routes" | "ui" | "state" | "data" | "dependencies";
+export interface ContractEntry {
+    key: string;
+    file: string;
+    line: number;
+    label: string;
+    signature: string;
+    hash: string;
+    truncated?: boolean;
+}
+export interface ContractSnapshot {
+    version: number;
+    capturedAt: string;
+    scannedFiles: number;
+    warnings: string[];
+    categories: Record<ContractCategory, ContractEntry[]>;
 }

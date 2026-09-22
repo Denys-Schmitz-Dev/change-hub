@@ -10,7 +10,7 @@ class Project extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'repository_path', 'playwright_config'];
+    protected $fillable = ['name', 'repository_path', 'playwright_config', 'suite_name', 'test_filter'];
 
     protected function casts(): array
     {

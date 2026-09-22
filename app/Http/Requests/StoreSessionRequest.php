@@ -7,6 +7,11 @@ use Illuminate\Validation\Rule;
 
 class StoreSessionRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        $this->mergeIfMissing(['path' => '/', 'devices' => ['desktop'], 'scenarios' => ['live']]);
+    }
+
     public function authorize(): bool
     {
         return true;

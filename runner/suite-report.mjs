@@ -1,21 +1,34 @@
 import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises'
 import { join, sep } from 'node:path'
 import { createHash } from 'node:crypto'
+import { traceDiagnostics } from './diagnostics.mjs'
 const digest = value => createHash('sha256').update(value).digest('hex')
-// Only copy declared attachments from this execution's output tree. Never trust report paths.
-export async function importSuiteReport(report, output) {
- const tests=[]
- const root=await realpath(join(output,'test-output'))
- await mkdir(join(output,'assets'),{recursive:true})
- async function visit(suite, parents=[]) {
+export function suiteTests(report) {
+ const entries=[]
+ function visit(suite,parents=[]) {
   const names=[...parents,suite.title].filter(Boolean)
   for(const spec of suite.specs??[]) for(const test of spec.tests??[]) {
    const identity=JSON.stringify([spec.file,names,spec.title,test.projectName])
+   entries.push({spec,test,names,identity,key:digest(identity),file:spec.file,title:[...names,spec.title].join(' › '),project:test.projectName??''})
+  }
+  for(const child of suite.suites??[])visit(child,names)
+ }
+ for(const suite of report.suites??[])visit(suite)
+ return entries
+}
+// Only copy declared attachments from this execution's output tree. Never trust report paths.
+export async function importSuiteReport(report, output, { captureVideo = true } = {}) {
+ const tests=[]
+ const root=await realpath(join(output,'test-output'))
+ await mkdir(join(output,'assets'),{recursive:true})
+ for(const {test,identity,key,file,title,project} of suiteTests(report)) {
    const attempts=test.results??[]
    const result=attempts.at(-1)
-   const item={key:digest(identity),title:[...names,spec.title].join(' › '),project:test.projectName??'',outcome:test.status,expectedStatus:test.expectedStatus,duration:attempts.reduce((sum,r)=>sum+(r.duration??0),0),attempts:attempts.map(r=>({status:r.status,retry:r.retry,duration:r.duration,errors:(r.errors??[]).map(e=>e.message??e.value??'Unknown failure')})),attachments:[]}
+   const item={key,file,title,project,outcome:test.status,expectedStatus:test.expectedStatus,duration:attempts.reduce((sum,r)=>sum+(r.duration??0),0),attempts:attempts.map(r=>({status:r.status,retry:r.retry,duration:r.duration,errors:(r.errors??[]).map(e=>e.message??e.value??'Unknown failure')})),attachments:[]}
+   item.coveredFiles=[...new Set([...(test.annotations??[]),...(result?.annotations??[])].filter(annotation=>annotation.type==='covers' && typeof annotation.description==='string').map(annotation=>annotation.description.replaceAll('\\','/').replace(/^\.\//,'')).filter(file=>file && !file.startsWith('/') && !file.includes(':') && !file.split('/').includes('..')))]
    const seen=new Map()
    for(const attachment of result?.attachments??[]) {
+    if(!captureVideo && attachment.contentType==='video/webm')continue
     const extension={'image/png':'png','application/zip':'zip','text/plain':'txt','video/webm':'webm'}[attachment.contentType]
     if(!extension)continue
     let bytes
@@ -32,11 +45,9 @@ export async function importSuiteReport(report, output) {
     const file=`${key}.${extension}`
     await writeFile(join(output,'assets',file),bytes)
     item.attachments.push({key,name:attachment.name,file,contentType:attachment.contentType})
+    if(extension==='zip' && attachment.name==='trace') item.diagnostics=await traceDiagnostics(bytes)
    }
    tests.push(item)
-  }
-  for(const child of suite.suites??[])await visit(child,names)
  }
- for(const suite of report.suites??[])await visit(suite)
  return {tests,errors:(report.errors??[]).map(e=>e.message??e.value??'Unknown error'),stats:report.stats}
 }

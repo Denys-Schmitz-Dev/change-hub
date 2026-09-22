@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 import { devices, digest } from './profile.mjs'
+import { snapshotContracts } from './contracts.mjs'
 const exec = promisify(execFile)
 export async function gitState(cwd) {
   const git = args => exec('git', ['-c', `safe.directory=${cwd}`, ...args], { cwd, maxBuffer: 32 * 1024 * 1024 })
@@ -20,6 +21,7 @@ export async function gitState(cwd) {
 function safeURL(value) { const url = new URL(value); return url.origin + url.pathname }
 export async function captureSession({ session, run, directory, baseURL, repoRoot, progress }) {
   run.sourceBefore = await gitState(repoRoot)
+  run.contracts = await snapshotContracts(repoRoot)
   const browser = await chromium.launch()
   run.browserVersion = browser.version()
   try {

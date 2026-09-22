@@ -9,6 +9,17 @@ const videos = (run?: SuiteRun): Entry[] =>
     ) ?? [];
 const source = (run: SuiteRun, entry: Entry) =>
     `/suite-runs/${run.id}/artifacts/${entry.attachment.file}`;
+const poster = (run: SuiteRun, entry: Entry) => {
+    const screenshots = entry.test.attachments.filter(
+        (attachment) => attachment.contentType === "image/png",
+    );
+    const attachment =
+        screenshots.find((attachment) => attachment.name === "page") ??
+        screenshots[0];
+    return attachment
+        ? `/suite-runs/${run.id}/artifacts/${attachment.file}`
+        : undefined;
+};
 function Players({
     before,
     after,
@@ -24,8 +35,11 @@ function Players({
         b = useRef<HTMLVideoElement>(null);
     const [speed, setSpeed] = useState(1),
         [error, setError] = useState("");
+    const [loadErrors, setLoadErrors] = useState<Record<string, string>>({});
     const both = !!left && !!right;
-    async function playBoth() {
+    const playable = !!left || !!right;
+    const playbackTarget = both ? "both" : left ? "before" : "after";
+    async function playFromStart() {
         setError("");
         const players = [a.current, b.current].filter(
             (v): v is HTMLVideoElement => v !== null,
@@ -37,6 +51,7 @@ function Players({
             }
             await Promise.all(players.map((player) => player.play()));
         } catch {
+            players.forEach((player) => player.pause());
             setError(
                 "Playback could not start. Use the individual video controls to retry.",
             );
@@ -47,20 +62,20 @@ function Players({
             <div className="filters">
                 <button
                     type="button"
-                    disabled={!both}
-                    onClick={() => void playBoth()}
+                    disabled={!playable}
+                    onClick={() => void playFromStart()}
                 >
-                    Play both from start
+                    Play {playbackTarget} from start
                 </button>
                 <button
                     type="button"
-                    disabled={!both}
+                    disabled={!playable}
                     onClick={() => {
                         a.current?.pause();
                         b.current?.pause();
                     }}
                 >
-                    Pause both
+                    Pause {playbackTarget}
                 </button>
                 <label>
                     Playback speed
@@ -83,59 +98,86 @@ function Players({
                 </label>
             </div>
             {error && <p role="alert">{error}</p>}
-            <div className="comparison">
+            <div className={`comparison ${!after ? "baseline-video" : ""}`}>
                 {[
                     { label: "Before", run: before, entry: left, ref: a },
                     { label: "After", run: after, entry: right, ref: b },
-                ].map(({ label, run, entry, ref }) => (
-                    <article className="capture-panel" key={label}>
-                        <div className="panel-heading">
-                            <strong>{label} interaction</strong>
-                            <small>{entry?.test.project}</small>
-                        </div>
-                        {entry && run ? (
-                            <>
-                                <video
-                                    ref={ref}
-                                    controls
-                                    playsInline
-                                    muted
-                                    preload="metadata"
-                                    aria-label={`${label} interaction video`}
-                                    src={source(run, entry)}
-                                    style={{
-                                        width: "100%",
-                                        maxHeight: 640,
-                                        background: "#111",
-                                    }}
-                                    onError={() =>
-                                        setError(
-                                            "A recording could not be loaded. Try opening its video file directly.",
-                                        )
-                                    }
-                                />
-                                <div className="links">
-                                    <a
-                                        href={source(run, entry)}
-                                        target="_blank"
-                                        rel="noopener"
-                                    >
-                                        Open {label.toLowerCase()} video
-                                    </a>
-                                </div>
-                            </>
-                        ) : (
-                            <div className="empty">
-                                <p>
-                                    No matching recording in this run. Older
-                                    runs without video cannot be reconstructed;
-                                    record a new suite baseline for a full video
-                                    comparison.
-                                </p>
+                ]
+                    .filter(({ label }) => label !== "After" || after)
+                    .map(({ label, run, entry, ref }) => (
+                        <article className="capture-panel" key={label}>
+                            <div className="panel-heading">
+                                <strong>{label} interaction</strong>
+                                <small>{entry?.test.project}</small>
                             </div>
-                        )}
-                    </article>
-                ))}
+                            {entry && run ? (
+                                <>
+                                    <video
+                                        ref={ref}
+                                        controls
+                                        playsInline
+                                        muted
+                                        preload="metadata"
+                                        aria-label={`${label} interaction video`}
+                                        src={source(run, entry)}
+                                        poster={poster(run, entry)}
+                                        className="comparison-video"
+                                        onLoadedData={() =>
+                                            setLoadErrors((errors) => ({
+                                                ...errors,
+                                                [label]: "",
+                                            }))
+                                        }
+                                        onError={(event) => {
+                                            const code =
+                                                event.currentTarget.error?.code;
+                                            const reason =
+                                                code === 3 || code === 4
+                                                    ? "The browser could not decode this WebM recording."
+                                                    : "The recording could not be downloaded.";
+                                            setLoadErrors((errors) => ({
+                                                ...errors,
+                                                [label]: `${label}: ${reason}`,
+                                            }));
+                                        }}
+                                    />
+                                    {loadErrors[label] && (
+                                        <div className="video-error">
+                                            <p role="alert">
+                                                {loadErrors[label]}
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setLoadErrors((errors) => ({
+                                                        ...errors,
+                                                        [label]: "",
+                                                    }));
+                                                    ref.current?.load();
+                                                }}
+                                            >
+                                                Retry {label.toLowerCase()}{" "}
+                                                video
+                                            </button>
+                                        </div>
+                                    )}
+                                    <div className="links">
+                                        <a
+                                            href={source(run, entry)}
+                                            target="_blank"
+                                            rel="noopener"
+                                        >
+                                            Open {label.toLowerCase()} video
+                                        </a>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="empty">
+                                    <p>No {label.toLowerCase()} recording.</p>
+                                </div>
+                            )}
+                        </article>
+                    ))}
             </div>
         </>
     );
@@ -144,10 +186,12 @@ export function SuiteVideos({
     before,
     after,
     name,
+    selectedTests,
 }: {
     before?: SuiteRun;
     after?: SuiteRun;
     name: string;
+    selectedTests?: string[] | null;
 }) {
     const left = videos(before),
         right = videos(after);
@@ -155,60 +199,45 @@ export function SuiteVideos({
         ...new Map(
             [...left, ...right].map((entry) => [entry.attachment.key, entry]),
         ).values(),
-    ];
-    const [key, setKey] = useState("");
-    const selected = choices.some((entry) => entry.attachment.key === key)
-        ? key
-        : choices[0]?.attachment.key;
+    ].filter(entry => selectedTests == null || selectedTests.includes(entry.test.key));
     return (
         <section aria-label={`Interaction videos for ${name}`}>
             <h4>Interaction videos</h4>
+            {before?.capture_video === false && <p>Video capture was off for this baseline.</p>}
+            {after?.capture_video === false && <p>Video capture was off for this after run.</p>}
             {choices.length === 0 ? (
-                <p>
-                    No recordings in these runs. Set{" "}
-                    <code>
-                        use: {"{"} video: 'on' {"}"}
-                    </code>{" "}
-                    in your Playwright config, then run the suite. Videos show
-                    the browser interaction at test speed.
-                </p>
+                <p>{selectedTests?.length === 0 ? "No tests selected for video comparison." : "No recordings for the selected tests in these runs."}</p>
             ) : (
-                <>
-                    <label>
-                        Recorded interaction
-                        <select
-                            aria-label={`Video for ${name}`}
-                            value={selected}
-                            onChange={(e) => setKey(e.target.value)}
-                        >
-                            {choices.map((entry) => (
-                                <option
-                                    key={entry.attachment.key}
-                                    value={entry.attachment.key}
-                                >
-                                    {entry.test.project} · {entry.test.title} ·{" "}
-                                    {entry.attachment.name}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                    <p>
-                        Watch or scrub each recording, or start both together.
-                        Playback aligns elapsed time, not individual test
-                        actions. Slow it down to inspect quick transitions.
-                    </p>
-                    <Players
-                        key={`${before?.id}-${after?.id}-${selected}`}
-                        before={before}
-                        after={after}
-                        left={left.find(
-                            (entry) => entry.attachment.key === selected,
-                        )}
-                        right={right.find(
-                            (entry) => entry.attachment.key === selected,
-                        )}
-                    />
-                </>
+                choices.map((entry, index) => (
+                    <section
+                        className="video-pair"
+                        key={entry.attachment.key}
+                        aria-label={`${entry.test.project}: ${entry.test.title}: ${entry.attachment.name}`}
+                    >
+                        <div className="video-pair-heading">
+                            <h4>{entry.test.title}</h4>
+                            <span className="badge">
+                                {entry.test.project || "Default"} · {index + 1}/
+                                {choices.length}
+                            </span>
+                        </div>
+                        <Players
+                            key={`${before?.id}-${after?.id}-${entry.attachment.key}`}
+                            before={before}
+                            after={after}
+                            left={left.find(
+                                (candidate) =>
+                                    candidate.attachment.key ===
+                                    entry.attachment.key,
+                            )}
+                            right={right.find(
+                                (candidate) =>
+                                    candidate.attachment.key ===
+                                    entry.attachment.key,
+                            )}
+                        />
+                    </section>
+                ))
             )}
         </section>
     );

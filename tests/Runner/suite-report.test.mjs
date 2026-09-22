@@ -13,6 +13,8 @@ test('pairs named attachments independently of outcome, preserves retries and sk
  const first=await importSuiteReport(report,root)
  assert.equal(first.tests[0].attempts.length,2);assert.equal(first.tests[0].outcome,'flaky');assert.equal(first.tests[1].outcome,'skipped');assert.equal(first.tests[0].attachments.length,2)
  report.suites[0].suites[0].specs[0].tests[0].status='expected'
+ report.suites[0].suites[0].specs[0].tests[0].annotations=[{type:'covers',description:'./src/Home.tsx'},{type:'covers',description:'../secret'},{type:'covers',description:'/absolute'},{type:'issue',description:'src/Other.tsx'}]
  const second=await importSuiteReport(report,root);assert.equal(second.tests[0].attachments[0].key,first.tests[0].attachments[0].key)
+ assert.deepEqual(second.tests[0].coveredFiles,['src/Home.tsx'])
  }finally{await rm(root,{recursive:true,force:true})}
 })

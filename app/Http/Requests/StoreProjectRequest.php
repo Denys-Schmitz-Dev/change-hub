@@ -17,7 +17,7 @@ class StoreProjectRequest extends FormRequest
             if (! is_dir($value) || ! file_exists(rtrim($value, '/').'/.git')) {
                 $fail('Choose a local Git repository root.');
             }
-        }], 'playwright_config' => 'nullable|string|max:500'];
+        }], 'playwright_config' => 'required|string|max:500', 'suite_name' => 'required|string|max:120', 'test_filter' => 'nullable|string|max:200'];
     }
 
     public function after(): array

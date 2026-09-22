@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\CreateEnvironmentAction;
+use App\Actions\CreateProjectAction;
 use App\Http\Requests\StoreEnvironmentRequest;
 use App\Http\Requests\StoreProjectRequest;
 use App\Models\Project;
@@ -15,11 +17,9 @@ class ProjectController extends Controller
         return $this->hub('project');
     }
 
-    public function store(StoreProjectRequest $request): RedirectResponse
+    public function store(StoreProjectRequest $request, CreateProjectAction $action): RedirectResponse
     {
-        $data = $request->validated();
-        $data['repository_path'] = realpath($data['repository_path']);
-        $project = Project::create($data);
+        $project = $action->handle($request->validated());
 
         return redirect()->route('environments.create', $project);
     }
@@ -29,12 +29,9 @@ class ProjectController extends Controller
         return $this->hub('environment', compact('project'));
     }
 
-    public function storeEnvironment(StoreEnvironmentRequest $request, Project $project): RedirectResponse
+    public function storeEnvironment(StoreEnvironmentRequest $request, Project $project, CreateEnvironmentAction $action): RedirectResponse
     {
-        $data = $request->validated();
-        $data['base_url'] = rtrim($data['base_url'], '/');
-        $data['allowed_origins'] = array_values(array_unique(array_map(fn ($v) => rtrim($v, '/'), preg_split('/\s+/', trim($data['allowed_origins'] ?? ''), -1, PREG_SPLIT_NO_EMPTY))));
-        $environment = $project->environments()->create($data);
+        $environment = $action->handle($project, $request->validated());
 
         return redirect()->route('sessions.create', ['environment' => $environment->id]);
     }

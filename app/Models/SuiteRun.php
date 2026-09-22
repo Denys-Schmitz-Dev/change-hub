@@ -10,11 +10,11 @@ class SuiteRun extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['test_suite_id', 'phase', 'status', 'error', 'report'];
+    protected $fillable = ['test_suite_id', 'phase', 'status', 'error', 'report', 'capture_video'];
 
     protected function casts(): array
     {
-        return ['report' => 'array'];
+        return ['report' => 'array', 'capture_video' => 'boolean'];
     }
 
     public function suite(): BelongsTo

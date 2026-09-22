@@ -3,11 +3,14 @@
 namespace Tests\Feature;
 
 use App\Jobs\CaptureEnvironment;
+use App\Jobs\RunTestSuite;
 use App\Models\Artifact;
 use App\Models\CaptureRun;
 use App\Models\ChangeSession;
 use App\Models\Environment;
 use App\Models\Project;
+use App\Models\SuiteRun;
+use App\Models\TestSuite;
 use App\Services\BrowserRunner;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -21,7 +24,7 @@ class HubTest extends TestCase
 
     public function test_connects_a_repository_without_starting_an_environment(): void
     {
-        $this->post(route('projects.store'), ['name' => 'Website', 'repository_path' => dirname(base_path())])->assertRedirect();
+        $this->post(route('projects.store'), ['name' => 'Website', 'repository_path' => dirname(base_path()), 'playwright_config' => 'change-hub/playwright.config.js', 'suite_name' => 'Home', 'test_filter' => 'Home'])->assertSessionHasNoErrors()->assertRedirect();
         $this->assertDatabaseHas('projects', ['name' => 'Website', 'repository_path' => dirname(base_path())]);
         $this->assertDatabaseCount('environments', 0);
     }
@@ -59,24 +62,26 @@ class HubTest extends TestCase
         $this->assertSame('/about', $session->profile['path']);
     }
 
-    public function test_rejects_mismatched_fixture_states(): void
+    public function test_creates_default_suite_without_page_capture_options(): void
     {
         $environment = Environment::factory()->create();
-        $this->post(route('sessions.store'), ['environment_id' => $environment->id, 'title' => 'A change', 'path' => '/', 'devices' => ['desktop'], 'scenarios' => ['approved']])->assertSessionHasErrors('scenarios');
-        $this->assertDatabaseCount('change_sessions', 0);
+        $environment->project->update(['playwright_config' => 'playwright.config.js', 'suite_name' => 'Home', 'test_filter' => 'Home']);
+        $this->post(route('sessions.store'), ['environment_id' => $environment->id, 'title' => 'A change'])->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('test_suites', ['name' => 'Home', 'config' => 'playwright.config.js', 'grep' => 'Home']);
     }
 
     public function test_queues_before_and_rejects_a_duplicate(): void
     {
-        Queue::fake([CaptureEnvironment::class]);
+        Queue::fake();
         $session = ChangeSession::factory()->create();
+        $suite = TestSuite::factory()->create(['change_session_id' => $session->id]);
         $this->post(route('captures.store', $session), ['phase' => 'before'])->assertRedirect(route('sessions.show', $session));
         $this->post(route('captures.store', $session), ['phase' => 'before'])->assertSessionHasErrors('capture');
-        $run = $session->runs()->firstOrFail();
+        $run = $suite->runs()->firstOrFail();
         $this->assertSame('queued', $run->status);
-        $this->assertDatabaseCount('capture_runs', 1);
-        Queue::assertPushed(CaptureEnvironment::class, fn ($job) => $job->runId === $run->id);
-        Queue::assertPushed(CaptureEnvironment::class, 1);
+        $this->assertDatabaseCount('suite_runs', 1);
+        Queue::assertPushed(RunTestSuite::class, fn ($job) => $job->runId === $run->id);
+        Queue::assertPushed(RunTestSuite::class, 1);
     }
 
     public function test_requires_a_baseline_before_after_capture(): void
@@ -90,14 +95,15 @@ class HubTest extends TestCase
 
     public function test_preserves_baseline_when_queuing_an_after_version(): void
     {
-        Queue::fake([CaptureEnvironment::class]);
+        Queue::fake();
         $session = ChangeSession::factory()->create();
-        $baseline = CaptureRun::factory()->create(['change_session_id' => $session->id, 'status' => 'complete']);
+        $suite = TestSuite::factory()->create(['change_session_id' => $session->id]);
+        $baseline = SuiteRun::factory()->create(['test_suite_id' => $suite->id, 'status' => 'complete']);
         $this->post(route('captures.store', $session), ['phase' => 'before'])->assertSessionHasErrors('capture');
         $this->post(route('captures.store', $session), ['phase' => 'after'])->assertRedirect();
         $this->assertSame('complete', $baseline->fresh()->status);
-        $this->assertDatabaseCount('capture_runs', 2);
-        Queue::assertPushed(CaptureEnvironment::class, 1);
+        $this->assertDatabaseCount('suite_runs', 2);
+        Queue::assertPushed(RunTestSuite::class, 1);
     }
 
     public function test_failed_runner_attempt_is_retained_and_can_be_retried(): void
@@ -109,10 +115,12 @@ class HubTest extends TestCase
         (new CaptureEnvironment($run->id))->handle(app(BrowserRunner::class));
         $this->assertSame('failed', $run->fresh()->status);
         $this->assertSame('Browser missing', $run->fresh()->error);
-        Queue::fake([CaptureEnvironment::class]);
+        Queue::fake();
+        TestSuite::factory()->create(['change_session_id' => $run->change_session_id]);
         $this->post(route('captures.store', $run->session), ['phase' => 'before'])->assertRedirect();
-        $this->assertDatabaseCount('capture_runs', 2);
-        Queue::assertPushed(CaptureEnvironment::class, 1);
+        $this->assertDatabaseCount('capture_runs', 1);
+        $this->assertDatabaseCount('suite_runs', 1);
+        Queue::assertPushed(RunTestSuite::class, 1);
     }
 
     public function test_saves_structured_observations_from_the_runner(): void

@@ -8,8 +8,8 @@ function Home({ projects = [], sessions = [] }: Props) {
         <>
             <div className="heading">
                 <div>
-                    <span className="eyebrow">OBSERVE THE CHANGE</span>
-                    <h1>Your projects. A clearer view.</h1>
+                    <span className="eyebrow">YOUR VERIFICATION WORKSPACE</span>
+                    <h1>Build with confidence. Review with evidence.</h1>
                     <p>
                         Connect a running environment, save a baseline, and
                         compare your next change.
@@ -99,10 +99,10 @@ function App({ data }: { data: Payload }) {
                 <div className="project-mark">
                     <span className="eyebrow">YOUR DEVELOPMENT WORKSPACE</span>
                     <strong>Before. After. Evidence.</strong>
-                    <p>React · Laravel · your projects</p>
+                    <p>Changes, tests, and runtime evidence</p>
                 </div>
                 <nav>
-                    <a href="/">Projects & sessions</a>
+                    <a href="/" aria-current={data.page === "home" ? "page" : undefined}>Projects & sessions</a>
                     <a href="/projects/create">+ Connect a project</a>
                     <a href="/sessions/create">+ New change session</a>
                 </nav>

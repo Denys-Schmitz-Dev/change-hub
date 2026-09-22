@@ -2,47 +2,45 @@
 
 namespace App\Http\Controllers;
 
-use App\Jobs\RunTestSuite;
+use App\Actions\CreateTestSuiteAction;
+use App\Actions\DiscoverSuiteTestsAction;
+use App\Actions\QueueSuiteRunAction;
+use App\Actions\UpdateSuiteVideoAction;
+use App\Http\Requests\CaptureRequest;
+use App\Http\Requests\StoreTestSuiteRequest;
+use App\Http\Requests\UpdateSuiteVideoRequest;
 use App\Models\ChangeSession;
 use App\Models\SuiteRun;
 use App\Models\TestSuite;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class TestSuiteController extends Controller
 {
-    public function store(Request $request, ChangeSession $session): RedirectResponse
+    public function updateVideo(UpdateSuiteVideoRequest $request, TestSuite $suite, UpdateSuiteVideoAction $action): RedirectResponse
     {
-        $data = $request->validate(['name' => 'required|string|max:120', 'config' => 'required|string|max:500', 'grep' => 'nullable|string|max:200']);
-        $root = realpath($session->profile['repository']);
-        $path = realpath($root.'/'.$data['config']);
-        if (! $root || ! $path || ! is_file($path) || ! str_starts_with($path, $root.DIRECTORY_SEPARATOR)) {
-            throw ValidationException::withMessages(['config' => 'Choose a Playwright config inside the connected repository.']);
-        }
-        $data['config'] = substr($path, strlen($root) + 1);
-        $session->suites()->create($data);
+        $action->handle($suite, $request->validated('mode') === 'all' ? null : $request->validated('selected_tests', []));
+
+        return redirect()->route('sessions.show', $suite->change_session_id);
+    }
+
+    public function discover(TestSuite $suite, DiscoverSuiteTestsAction $action): RedirectResponse
+    {
+        $action->handle($suite);
+
+        return redirect()->route('sessions.show', $suite->change_session_id);
+    }
+
+    public function store(StoreTestSuiteRequest $request, ChangeSession $session, CreateTestSuiteAction $action): RedirectResponse
+    {
+        $action->handle($session, $request->validated());
 
         return redirect()->route('sessions.show', $session)->with('message', 'Suite added. Capture its before state before changing your feature.');
     }
 
-    public function run(Request $request, TestSuite $suite): RedirectResponse
+    public function run(CaptureRequest $request, TestSuite $suite, QueueSuiteRunAction $action): RedirectResponse
     {
-        $data = $request->validate(['phase' => 'required|in:before,after']);
-        DB::transaction(function () use ($suite, $data): void {
-            $suite = TestSuite::whereKey($suite->id)->lockForUpdate()->firstOrFail();
-            if ($suite->runs()->whereIn('status', ['queued', 'running'])->exists()) {
-                throw ValidationException::withMessages(['suite' => 'This suite is already running.']);
-            }
-            $baseline = $suite->runs()->where('phase', 'before')->where('status', 'complete')->exists();
-            if (($data['phase'] === 'before' && $baseline) || ($data['phase'] === 'after' && ! $baseline)) {
-                throw ValidationException::withMessages(['suite' => $baseline ? 'The suite baseline is locked. Add another suite to start over.' : 'Capture this suite’s before state first.']);
-            }
-            $run = $suite->runs()->create(['phase' => $data['phase'], 'status' => 'queued']);
-            RunTestSuite::dispatch($run->id);
-        });
+        $action->handle($suite, $request->validated('phase'));
 
         return redirect()->route('sessions.show', $suite->change_session_id);
     }

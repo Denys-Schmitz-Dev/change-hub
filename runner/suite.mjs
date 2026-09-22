@@ -5,8 +5,10 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { gitState } from './engine.mjs'
 import { importSuiteReport } from './suite-report.mjs'
+import { snapshotContracts } from './contracts.mjs'
+import { withVideoConfig } from './video-config.mjs'
 const request=JSON.parse(await readFile(process.argv[2],'utf8'))
-const report={status:'running',tests:[],startedAt:new Date().toISOString()}
+const report={status:'running',tests:[],startedAt:new Date().toISOString(),captureVideo:request.captureVideo !== false}
 await mkdir(request.output,{recursive:true})
 try {
  const repository=await realpath(request.repository)
@@ -19,12 +21,16 @@ try {
  if(request.grep)args.push('--grep',request.grep)
  report.command=['node',...args]
  report.sourceBefore=await gitState(repository)
+ report.contracts=await snapshotContracts(repository)
  let exitCode=0
- try {await promisify(execFile)(process.execPath,args,{cwd:dirname(config),timeout:210000,maxBuffer:8*1024*1024,env:{...process.env,PLAYWRIGHT_JSON_OUTPUT_FILE:join(request.output,'playwright.json'),CHANGE_PHASE:request.phase,HUB_BASE_URL:request.baseURL}})}
+ try {await withVideoConfig(config,report.captureVideo,async wrapper=>{
+  const actualArgs=[...args];actualArgs[actualArgs.indexOf('--config')+1]=wrapper
+  await promisify(execFile)(process.execPath,actualArgs,{cwd:dirname(config),timeout:210000,maxBuffer:8*1024*1024,env:{...process.env,PLAYWRIGHT_JSON_OUTPUT_FILE:join(request.output,'playwright.json'),CHANGE_PHASE:request.phase,HUB_BASE_URL:request.baseURL}})
+ })}
  catch(error){exitCode=typeof error.code==='number'?error.code:1;report.runnerError=String(error.stderr||error.message).slice(0,4000)}
  report.exitCode=exitCode
  const raw=JSON.parse(await readFile(join(request.output,'playwright.json'),'utf8'))
- Object.assign(report,await importSuiteReport(raw,request.output))
+ Object.assign(report,await importSuiteReport(raw,request.output,{captureVideo:report.captureVideo}))
  report.sourceAfter=await gitState(repository)
  if(report.sourceBefore.fingerprint!==report.sourceAfter.fingerprint)throw new Error('Source changed during this suite run. Retry with a stable working tree.')
  if(report.errors.length || report.tests.some(t=>t.attempts.some(a=>a.status==='interrupted')))throw new Error(report.errors.join('\n')||'Suite execution was interrupted.');

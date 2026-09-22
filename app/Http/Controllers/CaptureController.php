@@ -2,18 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\QueueCaptureAction;
+use App\Http\Requests\CaptureRequest;
 use App\Models\ChangeSession;
-use App\Services\CaptureService;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 
 class CaptureController extends Controller
 {
-    public function store(Request $request, ChangeSession $session, CaptureService $captures): RedirectResponse
+    public function store(CaptureRequest $request, ChangeSession $session, QueueCaptureAction $action): RedirectResponse
     {
-        $data = $request->validate(['phase' => 'required|in:before,after']);
-        $captures->queue($session, $data['phase']);
+        $action->handle($session, $request->validated('phase'));
 
-        return redirect()->route('sessions.show', $session)->with('message', 'Capture queued. The local worker will save the evidence.');
+        return redirect()->route('sessions.show', $session)->with('message', 'Test suites queued. Videos and developer evidence will appear as each run finishes.');
     }
 }

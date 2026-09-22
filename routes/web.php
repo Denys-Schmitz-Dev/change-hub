@@ -21,4 +21,6 @@ Route::get('/artifacts/{artifact}', [ArtifactController::class, 'show'])->name('
 
 Route::post('/sessions/{session}/suites', [TestSuiteController::class, 'store'])->name('suites.store');
 Route::post('/suites/{suite}/runs', [TestSuiteController::class, 'run'])->name('suites.run');
+Route::post('/suites/{suite}/video', [TestSuiteController::class, 'updateVideo'])->name('suites.video');
+Route::post('/suites/{suite}/tests', [TestSuiteController::class, 'discover'])->name('suites.tests');
 Route::get('/suite-runs/{run}/artifacts/{file}', [TestSuiteController::class, 'artifact'])->where('file', '[a-f0-9]+\.(png|zip|txt|webm)')->name('suites.artifact');
