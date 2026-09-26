@@ -21,7 +21,12 @@ function SuiteSettings({
             : fallback;
     return (
         <div className="suite-settings">
-            {!!suite.test_selection?.length && <p className="notice">This suite runs {suite.test_selection.length} picked tests. Changing its config or filter resets the picked selection.</p>}
+            {!!suite.test_selection?.length && (
+                <p className="notice">
+                    This suite runs {suite.test_selection.length} picked tests.
+                    Changing its config or filter resets the picked selection.
+                </p>
+            )}
             <details open={editing || undefined}>
                 <summary>Edit suite</summary>
                 <Form action={`/suites/${suite.id}`} csrf={data.csrf}>
@@ -62,8 +67,8 @@ function SuiteSettings({
                                     value="1"
                                 />
                                 If I change the config or filter, delete this
-                                suite’s captures. The session baseline stays unchanged.
-                                Renaming keeps captures.
+                                suite’s captures. The session baseline stays
+                                unchanged. Renaming keeps captures.
                             </label>
                         )}
                         <button className="primary">Save suite</button>
@@ -110,11 +115,9 @@ function SuiteSettings({
 export function SuiteManager({
     data,
     selectedId,
-    onSelect,
 }: {
     data: Payload;
     selectedId?: number;
-    onSelect: (id: string) => void;
 }) {
     const session = data.props.session!;
     const [picking, setPicking] = useState(false);
@@ -123,7 +126,9 @@ export function SuiteManager({
     );
     return (
         <section className="suite-manager" aria-label="Playwright suites">
-            {picking && <TestPicker data={data} onClose={() => setPicking(false)} />}
+            {picking && (
+                <TestPicker data={data} onClose={() => setPicking(false)} />
+            )}
             <div className="recent-heading">
                 <div>
                     <h2>Playwright suites</h2>
@@ -132,7 +137,14 @@ export function SuiteManager({
                         manage its settings and test files.
                     </p>
                 </div>
-                <button type="button" className="primary" disabled={!!data.props.active} onClick={() => setPicking(true)}>Add tests</button>
+                <button
+                    type="button"
+                    className="primary"
+                    disabled={!!data.props.active}
+                    onClick={() => setPicking(true)}
+                >
+                    Add tests
+                </button>
             </div>
             {!!session.suites.length && (
                 <div className="suite-table-scroll">
@@ -192,17 +204,12 @@ export function SuiteManager({
                                             </small>
                                         </td>
                                         <td>
-                                            <button
-                                                type="button"
-                                                aria-pressed={
-                                                    suite.id === selectedId
-                                                }
-                                                onClick={() =>
-                                                    onSelect(String(suite.id))
-                                                }
+                                            <a
+                                                className="button"
+                                                href={`?tab=videos&suite=${suite.id}`}
                                             >
-                                                Review {suite.name}
-                                            </button>
+                                                See videos
+                                            </a>
                                         </td>
                                     </tr>
                                     {expanded.has(suite.id) && (
@@ -232,7 +239,10 @@ export function SuiteManager({
                 }
             >
                 <summary>Add a Playwright suite</summary>
-                <p>Advanced: connect a full config or enter a regex filter. Use Add tests above to choose tests by name.</p>
+                <p>
+                    Advanced: connect a full config or enter a regex filter. Use
+                    Add tests above to choose tests by name.
+                </p>
                 <Form
                     action={`/sessions/${session.id}/suites`}
                     csrf={data.csrf}

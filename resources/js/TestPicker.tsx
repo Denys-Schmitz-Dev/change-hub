@@ -42,6 +42,12 @@ export function TestPicker({
     const [saving, setSaving] = useState(false);
     const [loaded, setLoaded] = useState(false);
     const [error, setError] = useState("");
+    const alreadySelected = new Set(
+        session.suites
+            .filter((suite) => suite.config === config)
+            .flatMap((suite) => suite.test_selection ?? [])
+            .map((test) => test.key),
+    );
 
     async function loadTests() {
         request.current?.abort();
@@ -105,7 +111,9 @@ export function TestPicker({
     function toggle(keys: string[], checked: boolean) {
         setSelected((current) => {
             const next = new Set(current);
-            keys.forEach((key) => (checked ? next.add(key) : next.delete(key)));
+            keys.filter((key) => !alreadySelected.has(key)).forEach((key) =>
+                checked ? next.add(key) : next.delete(key),
+            );
             return next;
         });
     }
@@ -260,7 +268,14 @@ export function TestPicker({
                                 disabled={saving || !visible.length}
                                 onClick={() =>
                                     toggle(
-                                        visible.map((test) => test.key),
+                                        visible
+                                            .filter(
+                                                (test) =>
+                                                    !alreadySelected.has(
+                                                        test.key,
+                                                    ),
+                                            )
+                                            .map((test) => test.key),
                                         true,
                                     )
                                 }
@@ -303,31 +318,30 @@ export function TestPicker({
                                     </button>
                                 </div>
                             ) : (
-                                files.map((file) => (
-                                    <details
-                                        className="picker-file"
-                                        key={file}
-                                        open
-                                    >
-                                        <summary>
-                                            <code>{file}</code>
-                                            <span>
-                                                {
-                                                    visible.filter(
-                                                        (test) =>
-                                                            test.file === file,
-                                                    ).length
-                                                }{" "}
-                                                tests
-                                            </span>
-                                        </summary>
-                                        {visible
-                                            .filter(
-                                                (test) => test.file === file,
-                                            )
-                                            .map((test) => (
+                                files.map((file) => {
+                                    const fileTests = visible.filter(
+                                        (test) => test.file === file,
+                                    );
+                                    const fullyAdded = fileTests.every((test) =>
+                                        alreadySelected.has(test.key),
+                                    );
+                                    return (
+                                        <details
+                                            className={`picker-file${fullyAdded ? " already-added" : ""}`}
+                                            key={file}
+                                            open={!fullyAdded}
+                                        >
+                                            <summary>
+                                                <code>{file}</code>
+                                                <span>
+                                                    {fullyAdded
+                                                        ? `✓ All ${fileTests.length} already selected`
+                                                        : `${fileTests.filter((test) => alreadySelected.has(test.key)).length} selected · ${fileTests.length} tests`}
+                                                </span>
+                                            </summary>
+                                            {fileTests.map((test) => (
                                                 <label
-                                                    className="picker-test"
+                                                    className={`picker-test${alreadySelected.has(test.key) ? " already-added" : ""}`}
                                                     key={test.key}
                                                 >
                                                     <input
@@ -336,7 +350,12 @@ export function TestPicker({
                                                         checked={selected.has(
                                                             test.key,
                                                         )}
-                                                        disabled={saving}
+                                                        disabled={
+                                                            saving ||
+                                                            alreadySelected.has(
+                                                                test.key,
+                                                            )
+                                                        }
                                                         onChange={(event) =>
                                                             toggle(
                                                                 [test.key],
@@ -357,12 +376,17 @@ export function TestPicker({
                                                         <small>
                                                             {test.project ||
                                                                 "Default project"}
+                                                            {alreadySelected.has(
+                                                                test.key,
+                                                            ) &&
+                                                                " · Already selected"}
                                                         </small>
                                                     </span>
                                                 </label>
                                             ))}
-                                    </details>
-                                ))
+                                        </details>
+                                    );
+                                })
                             )}
                         </div>
                     </>

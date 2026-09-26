@@ -53,7 +53,7 @@ export function TestRows({
     );
 }
 
-export function FailureOutput({ run }: { run?: SuiteRun }) {
+export function FailureOutput({ run, suiteName }: { run?: SuiteRun; suiteName?: string }) {
     const failures =
         run?.report?.tests.filter(
             (test) =>
@@ -84,7 +84,10 @@ export function FailureOutput({ run }: { run?: SuiteRun }) {
                                   : "Failed"}
                         </span>
                     </summary>
-                    <small>{test.project || "Default project"}</small>
+                    <small>
+                        {test.suiteName ?? suiteName ?? "Unknown suite"} ·{" "}
+                        {test.project || "Default project"}
+                    </small>
                     {test.attempts
                         .filter(
                             (attempt) =>

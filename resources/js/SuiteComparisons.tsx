@@ -4,8 +4,42 @@ import { SuiteVideos } from "./SuiteVideos";
 import { DevDetails } from "./DevDetails";
 import { SuiteManager } from "./SuiteManager";
 import { CoverageSummary } from "./CoverageSummary";
+import { ChangeReview } from "./ChangeReview";
 import { plainOutput } from "./plain-output";
 import type { Payload, SuiteRun } from "./types";
+
+function combinedRun(runs: SuiteRun[], phase: string): SuiteRun | undefined {
+    if (!runs.length) return undefined;
+    const source = [...runs].reverse().find((run) => run.report?.contracts) ?? runs.at(-1)!;
+    const tests = runs.flatMap((run, index) =>
+        (run.report?.tests ?? []).map((test) => ({
+            ...test,
+            key: `${run.config ?? index}:${test.key}`,
+            suiteName: run.suite_name ?? test.suiteName,
+        })),
+    );
+    const complete = runs.every((run) => run.status === "complete");
+    return {
+        ...source,
+        phase,
+        status: complete ? "complete" : source.status,
+        capture_video: runs.some((run) => run.capture_video),
+        report: source.report
+            ? {
+                  ...source.report,
+                  outcome: runs.some((run) => run.report?.outcome === "failed")
+                      ? "failed"
+                      : source.report.outcome,
+                  tests,
+                  errors: runs.flatMap((run) =>
+                      (run.report?.errors ?? []).map((error) =>
+                          run.suite_name ? `${run.suite_name}: ${error}` : error,
+                      ),
+                  ),
+              }
+            : null,
+    };
+}
 
 function captureLabel(run: SuiteRun): string {
     const date = run.created_at ? new Date(run.created_at) : null;
@@ -26,12 +60,15 @@ export function SuiteComparisons({
     const session = data.props.session!;
     const storageKey = `comparison-suite-${session.id}`;
     const [suiteId, setSuiteId] = useState(() => {
+        const requested = new URLSearchParams(location.search).get("suite");
+        if (requested) return requested;
         try {
             return sessionStorage.getItem(storageKey) ?? "";
         } catch {
             return "";
         }
     });
+    const [captureSuiteId, setCaptureSuiteId] = useState("all");
     function selectSuite(id: string) {
         setSuiteId(id);
         setVersion(savedVersion(id));
@@ -41,6 +78,7 @@ export function SuiteComparisons({
             /* Selection still works without storage. */
         }
     }
+    const showAllSuites = suiteId === "all";
     const suite =
         session.suites.find((suite) => String(suite.id) === suiteId) ??
         session.suites.at(-1);
@@ -67,7 +105,7 @@ export function SuiteComparisons({
             /* Version selection remains usable without browser storage. */
         }
     }
-    const baselineRuns =
+    const baselineRuns = (
         session.baseline?.runs ??
         session.suites.flatMap((item) =>
             item.runs
@@ -80,11 +118,19 @@ export function SuiteComparisons({
                     config: item.config,
                     test_suite_id: item.id,
                 })),
-        );
+        )
+    ).map((run) => ({
+        ...run,
+        suite_name: session.suites.find(
+            (item) =>
+                item.id === run.test_suite_id || item.config === run.config,
+        )?.name,
+    }));
     const before =
         baselineRuns.find((run) => run.test_suite_id === suite?.id) ??
         baselineRuns.find((run) => run.config === suite?.config) ??
         baselineRuns[0];
+    const devBefore = baselineRuns[0];
     const afterRuns = suite?.runs.filter((run) => run.phase === "after") ?? [];
     const after =
         afterRuns.find((run) => String(run.id) === version) ?? afterRuns.at(-1);
@@ -101,10 +147,41 @@ export function SuiteComparisons({
                   !baselineRuns.some((run) => run.test_suite_id === item.id),
           )
         : !hasSessionBaseline;
+    const captureSuite = session.suites.find(
+        (item) => String(item.id) === captureSuiteId,
+    );
+    const captureSuiteNeedsBaseline = captureSuite
+        ? needsBaseline &&
+          (!eligibleIds || eligibleIds.includes(captureSuite.id)) &&
+          !baselineRuns.some((run) => run.test_suite_id === captureSuite.id)
+        : needsBaseline;
     const suiteNeedsBaseline =
         needsBaseline &&
         (!eligibleIds || eligibleIds.includes(suite?.id ?? -1)) &&
         !baselineRuns.some((run) => run.test_suite_id === suite?.id);
+    const latestAfterRuns = session.suites.flatMap((item) => {
+        const run = item.runs.filter((candidate) => candidate.phase === "after").at(-1);
+        return run
+            ? [{ ...run, config: item.config, suite_name: item.name }]
+            : [];
+    });
+    const allSuitesComparison = {
+        before: combinedRun(baselineRuns, "before"),
+        after: combinedRun(latestAfterRuns, "after"),
+    };
+    const overviewSuites = suite ? [suite] : [];
+    const overviewComparison = (item: (typeof session.suites)[number]) => {
+        const itemBefore =
+            baselineRuns.find((run) => run.test_suite_id === item.id) ??
+            baselineRuns.find((run) => run.config === item.config) ??
+            baselineRuns[0];
+        const itemAfterRuns = item.runs.filter((run) => run.phase === "after");
+        const itemAfter =
+            item.id === suite?.id && !showAllSuites
+                ? after
+                : itemAfterRuns.at(-1);
+        return { before: itemBefore, after: itemAfter };
+    };
     return (
         <section className="suite-comparisons">
             <div
@@ -113,116 +190,96 @@ export function SuiteComparisons({
                 aria-labelledby="tab-overview"
                 hidden={tab !== "overview"}
             >
-                <SuiteManager
-                    data={data}
-                    selectedId={suite?.id}
-                    onSelect={selectSuite}
-                />
-                <div className="filters overview-controls">
-                    {suite && (
-                        <label>
-                            Test suite
-                            <select
-                                value={suite.id}
-                                onChange={(event) =>
-                                    selectSuite(event.target.value)
-                                }
-                            >
-                                {session.suites.map((suite) => (
-                                    <option key={suite.id} value={suite.id}>
-                                        {suite.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-                    )}
-                    {suite && afterRuns.length > 0 && (
-                        <label>
-                            After version
-                            <select
-                                aria-label={`After version for ${suite.name}`}
-                                value={selectedVersion}
-                                onChange={(event) =>
-                                    selectVersion(event.target.value)
-                                }
-                            >
-                                <option value="">Latest after run</option>
-                                {afterRuns.map((run) => (
-                                    <option key={run.id} value={run.id}>
-                                        {captureLabel(run)}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-                    )}
-                    <div className="capture-controls">
-                        <span>Capture all suites</span>
-                        <div className="actions">
-                            {["before", "after"].map((phase) => (
-                                <Form
-                                    key={phase}
-                                    action={`/sessions/${session.id}/captures`}
-                                    csrf={data.csrf}
-                                >
-                                    <input
-                                        type="hidden"
-                                        name="phase"
-                                        value={phase}
-                                    />
-                                    <button
-                                        className={
-                                            phase === "after" ? "primary" : ""
-                                        }
-                                        disabled={
-                                            busy ||
-                                            !session.suites.length ||
-                                            (phase === "before"
-                                                ? !needsBaseline
-                                                : !hasSessionBaseline)
-                                        }
-                                    >
-                                        {phase === "before" &&
-                                        hasSessionBaseline &&
-                                        !needsBaseline
-                                            ? "Baseline locked"
-                                            : `Capture ${phase}`}
-                                    </button>
-                                </Form>
+                <div className="capture-controls overview-capture-bar">
+                    <label>
+                        Capture target
+                        <select
+                            aria-label="Capture target"
+                            value={captureSuiteId}
+                            onChange={(event) =>
+                                setCaptureSuiteId(event.target.value)
+                            }
+                        >
+                            <option value="all">All suites</option>
+                            {session.suites.map((item) => (
+                                <option key={item.id} value={item.id}>
+                                    {item.name}
+                                </option>
                             ))}
-                        </div>
+                        </select>
+                    </label>
+                    <div className="actions">
+                        {["before", "after"].map((phase) => (
+                            <Form
+                                key={phase}
+                                action={
+                                    captureSuite
+                                        ? `/suites/${captureSuite.id}/runs`
+                                        : `/sessions/${session.id}/captures`
+                                }
+                                csrf={data.csrf}
+                            >
+                                <input
+                                    type="hidden"
+                                    name="phase"
+                                    value={phase}
+                                />
+                                <button
+                                    className={
+                                        phase === "after" ? "primary" : ""
+                                    }
+                                    disabled={
+                                        busy ||
+                                        !session.suites.length ||
+                                        (phase === "before"
+                                            ? !captureSuiteNeedsBaseline
+                                            : !hasSessionBaseline)
+                                    }
+                                >
+                                    {phase === "before" &&
+                                    !captureSuiteNeedsBaseline
+                                        ? captureSuite
+                                            ? "Baseline reused"
+                                            : "Baseline locked"
+                                        : `Capture ${phase}`}
+                                </button>
+                            </Form>
+                        ))}
                     </div>
                 </div>
-                {suite && (
-                    <div
-                        className="review-shortcuts"
-                        aria-label="Evidence shortcuts"
-                    >
-                        <a
-                            className="button primary"
-                            href={`?tab=dev&section=review`}
+                <SuiteManager data={data} selectedId={suite?.id} />
+                {(showAllSuites ? [null] : overviewSuites).map((item) => {
+                    const selectedSuite = item ?? suite!;
+                    const comparison = showAllSuites ? allSuitesComparison : overviewComparison(selectedSuite);
+                    return <div className="overview-suite-review" key={showAllSuites ? "all" : selectedSuite.id}>
+                        <CoverageSummary
+                            before={comparison.before}
+                            after={comparison.after}
+                            selectedTests={showAllSuites ? null : selectedSuite.selected_tests}
+                            runLabel={showAllSuites && comparison.after ? `All suites · latest runs · ${comparison.after.status}` : undefined}
+                            suiteName={showAllSuites ? undefined : selectedSuite.name}
+                            controls={<div className="evidence-selectors">
+                                <label>Test suite<select aria-label="Test suite" value={showAllSuites ? "all" : String(suite?.id ?? "")} onChange={(event) => selectSuite(event.target.value)}>
+                                    <option value="all">All suites</option>
+                                    {session.suites.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+                                </select></label>
+                                {!showAllSuites && afterRuns.length > 0 && <label>After version<select aria-label={`After version for ${suite!.name}`} value={selectedVersion} onChange={(event) => selectVersion(event.target.value)}><option value="">Latest after run</option>{afterRuns.map((run) => <option key={run.id} value={run.id}>{captureLabel(run)}</option>)}</select></label>}
+                            </div>}
                         >
-                            Review changed code
-                        </a>
-                        <a className="button" href={`?tab=dev&section=tests`}>
-                            Inspect test results
-                        </a>
-                        <a
-                            className="button"
-                            href={`?tab=dev&section=contracts`}
-                        >
-                            Compare contracts
-                        </a>
-                    </div>
-                )}
-                {suite && (
-                    <CoverageSummary
-                        before={before}
-                        after={after}
-                        selectedTests={suite.selected_tests}
-                    />
-                )}
+                            <ChangeReview
+                                key={`${comparison.before?.id}-${comparison.after?.id}-${JSON.stringify(session.review_approvals ?? [])}`}
+                                before={comparison.before}
+                                after={comparison.after}
+                                sessionId={session.id}
+                                csrf={data.csrf}
+                                approvals={session.review_approvals ?? []}
+                                approvalRunIds={showAllSuites ? latestAfterRuns.map((run) => run.id) : undefined}
+                            />
+                        </CoverageSummary>
+                    </div>;
+                })}
             </div>
-            {suite ? (
+            {suite && tab !== "overview" ? (
                 <section
                     className="suite-evidence"
                     aria-label={`Suite ${suite.name}`}
@@ -322,8 +379,10 @@ export function SuiteComparisons({
                     {tab !== "overview" && (
                         <p className="comparison-context">
                             {suite.name} · Before{" "}
-                            {before ? `#${before.id}` : "not captured"} · After{" "}
-                            {after ? `#${after.id}` : "not captured"}
+                            {(tab === "dev" ? devBefore : before)
+                                ? `#${(tab === "dev" ? devBefore : before)!.id}`
+                                : "not captured"}{" "}
+                            · After {after ? `#${after.id}` : "not captured"}
                         </p>
                     )}
                     <div
@@ -351,15 +410,22 @@ export function SuiteComparisons({
                     >
                         <DevDetails
                             key={suite.id}
-                            before={before}
+                            before={devBefore}
                             after={after}
-                            runs={before && !suite.runs.some(run => run.id === before.id) ? [before, ...suite.runs] : suite.runs}
+                            runs={
+                                devBefore &&
+                                !suite.runs.some(
+                                    (run) => run.id === devBefore.id,
+                                )
+                                    ? [devBefore, ...suite.runs]
+                                    : suite.runs
+                            }
                         />
                     </div>
                 </section>
-            ) : (
+            ) : !suite ? (
                 <p>No test suites yet.</p>
-            )}
+            ) : null}
         </section>
     );
 }

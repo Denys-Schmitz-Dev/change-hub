@@ -49,10 +49,8 @@ test('critic cycle 2: picker discovers tests and runs only the chosen test and b
   await info.attach('test-picker-mobile', { body: await page.screenshot(), contentType: 'image/png' });
   await recordedAction(page, dialog.getByRole('button', { name: 'Add 1 selected test', exact: true }), 'click');
   await expect(dialog).toHaveCount(0);
-  const suite = page.getByRole('region', { name: 'Suite Chosen checkout', exact: true });
-  await expect(suite).toBeVisible();
-  await recordedAction(page, suite.getByRole('button', { name: 'Run suite before', exact: true }), 'click');
-  await expect(suite.getByRole('button', { name: 'Session baseline reused', exact: true })).toBeVisible({ timeout: 45000 });
+  await recordedAction(page, page.getByRole('button', { name: 'Capture before', exact: true }), 'click');
+  await expect(page.getByRole('button', { name: 'Baseline locked', exact: true })).toBeVisible({ timeout: 45000 });
   const html = await (await page.request.get(page.url())).text();
   const data = JSON.parse(html.match(/<script id="hub-data" type="application\/json">(.*?)<\/script>/s)[1]);
   const selected = data.props.session.suites.find(suite => suite.name === 'Chosen checkout');
@@ -61,7 +59,7 @@ test('critic cycle 2: picker discovers tests and runs only the chosen test and b
   expect(selected.runs[0].report.tests).toHaveLength(1);
   expect(selected.runs[0].report.tests[0].project).toBe('desktop');
   expect(selected.runs[0].report.tests[0].title).toContain('accepts [draft] (a+b)?');
-  await page.reload(); await expect(page.getByRole('region', { name: 'Suite Chosen checkout' })).toBeVisible();
+  await page.reload(); await expect(page.getByRole('region', { name: 'Playwright suites' }).getByRole('button', { name: '▸ Chosen checkout' })).toBeVisible();
  } finally { rmSync(repo, { recursive: true, force: true }); }
 });
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Actions\CreateEnvironmentAction;
 use App\Actions\CreateProjectAction;
+use App\Actions\DeleteWorkspaceResourceAction;
 use App\Http\Requests\StoreEnvironmentRequest;
 use App\Http\Requests\StoreProjectRequest;
 use App\Models\Project;
@@ -34,5 +35,12 @@ class ProjectController extends Controller
         $environment = $action->handle($project, $request->validated());
 
         return redirect()->route('sessions.create', ['environment' => $environment->id]);
+    }
+
+    public function destroy(Project $project, DeleteWorkspaceResourceAction $action): RedirectResponse
+    {
+        $action->project($project);
+
+        return redirect()->route('home', ['view' => 'projects'])->with('message', 'Project and its sessions deleted.');
     }
 }

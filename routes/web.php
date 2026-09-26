@@ -11,11 +11,15 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [HubController::class, 'index'])->name('home');
 Route::get('/projects/create', [ProjectController::class, 'create'])->name('projects.create');
 Route::post('/projects', [ProjectController::class, 'store'])->name('projects.store');
+Route::delete('/projects/{project}', [ProjectController::class, 'destroy'])->name('projects.destroy');
 Route::get('/projects/{project}/environments/create', [ProjectController::class, 'environment'])->name('environments.create');
 Route::post('/projects/{project}/environments', [ProjectController::class, 'storeEnvironment'])->name('environments.store');
 Route::get('/sessions/create', [SessionController::class, 'create'])->name('sessions.create');
 Route::post('/sessions', [SessionController::class, 'store'])->name('sessions.store');
 Route::get('/sessions/{session}', [SessionController::class, 'show'])->name('sessions.show');
+Route::delete('/sessions/{session}', [SessionController::class, 'destroy'])->name('sessions.destroy');
+Route::post('/sessions/{session}/review-approvals', [SessionController::class, 'approve'])->name('sessions.review-approvals.store');
+Route::delete('/sessions/{session}/review-approvals', [SessionController::class, 'revoke'])->name('sessions.review-approvals.destroy');
 Route::post('/sessions/{session}/captures', [CaptureController::class, 'store'])->name('captures.store');
 Route::get('/artifacts/{artifact}', [ArtifactController::class, 'show'])->name('artifacts.show');
 

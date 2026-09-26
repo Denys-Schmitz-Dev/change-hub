@@ -11,11 +11,11 @@ class ChangeSession extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['environment_id', 'title', 'profile', 'profile_hash', 'baseline'];
+    protected $fillable = ['environment_id', 'title', 'profile', 'profile_hash', 'baseline', 'review_approvals'];
 
     protected function casts(): array
     {
-        return ['profile' => 'array', 'baseline' => 'array'];
+        return ['profile' => 'array', 'baseline' => 'array', 'review_approvals' => 'array'];
     }
 
     public function environment(): BelongsTo

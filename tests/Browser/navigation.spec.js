@@ -32,7 +32,10 @@ test('home provides actions, five recent projects and sessions, and workspace na
     await expect(page.getByRole('heading', { name: 'Project 7 change sessions', exact: true })).toBeVisible();
     await expect(page.locator('.session-row')).toHaveCount(1);
     await expect(page.locator('.session-row')).toContainText('Change 7');
-    await expect(page.locator('.session-row')).toHaveAttribute('href', '/sessions/7');
+    await expect(page.locator('.session-row').getByRole('link', { name: 'Change 7', exact: true })).toHaveAttribute('href', '/sessions/7');
+    await recordedAction(page, page.locator('.session-row').getByRole('button', { name: 'Delete session', exact: true }), 'click');
+    await expect(page.locator('.session-row')).toContainText('Delete permanently?');
+    await recordedAction(page, page.locator('.session-row').getByRole('button', { name: 'Cancel', exact: true }), 'click');
     await page.reload();
     await expect(page.locator('.session-row')).toHaveCount(1);
     await page.goto('/?view=projects&project=6');
@@ -42,6 +45,9 @@ test('home provides actions, five recent projects and sessions, and workspace na
     await expect(page.getByRole('heading', { name: 'Project not found', exact: true })).toBeVisible();
     await expect(page.locator('.session-row')).toHaveCount(0);
     await recordedAction(page, page.getByRole('link', { name: 'All projects and sessions', exact: true }), 'click');
+    await recordedAction(page, page.locator('.card').filter({ hasText: 'Project 7' }).getByRole('button', { name: 'Delete project', exact: true }), 'click');
+    await expect(page.locator('.card').filter({ hasText: 'Project 7' })).toContainText('Delete permanently?');
+    await recordedAction(page, page.locator('.card').filter({ hasText: 'Project 7' }).getByRole('button', { name: 'Cancel', exact: true }), 'click');
     await recordedAction(page, page.getByRole('navigation').getByRole('link', { name: 'Projects and sessions' }), 'click');
     await expect(page.locator('.cards .card')).toHaveCount(7);
     await expect(page.getByRole('navigation').getByRole('link', { name: 'Projects and sessions' })).toHaveAttribute('aria-current', 'page');

@@ -20,7 +20,23 @@ function sessionStatus(session: NonNullable<Props["sessions"]>[number]) {
     if (session.baseline_available) return "Baseline captured";
     return session.runs.at(-1)?.status ?? "Ready for baseline";
 }
-function ProjectsAndSessions({ projects = [], sessions = [] }: Props) {
+function DeleteControl({ action, csrf, label }: { action: string; csrf: string; label: string }) {
+    const [confirming, setConfirming] = useState(false);
+    return confirming ? (
+        <div className="delete-confirmation">
+            <span>Delete permanently?</span>
+            <form method="post" action={action}>
+                <input type="hidden" name="_token" value={csrf} />
+                <input type="hidden" name="_method" value="DELETE" />
+                <button className="danger">Yes, delete</button>
+            </form>
+            <button type="button" onClick={() => setConfirming(false)}>Cancel</button>
+        </div>
+    ) : (
+        <button type="button" className="danger-link" onClick={() => setConfirming(true)}>{label}</button>
+    );
+}
+function ProjectsAndSessions({ projects = [], sessions = [], csrf }: Props & { csrf: string }) {
     const [sessionQuery, setSessionQuery] = useState("");
     const projectId = new URLSearchParams(location.search).get("project");
     const project = projects.find(
@@ -111,6 +127,7 @@ function ProjectsAndSessions({ projects = [], sessions = [] }: Props) {
                                 >
                                     + Add environment
                                 </a>
+                                <DeleteControl action={`/projects/${p.id}`} csrf={csrf} label="Delete project" />
                             </article>
                         ))}
                     </div>
@@ -146,20 +163,22 @@ function ProjectsAndSessions({ projects = [], sessions = [] }: Props) {
             )}
             <div className="sessions">
                 {visibleSessions.map((s) => (
-                    <a
+                    <div
                         className="session-row"
-                        href={`/sessions/${s.id}`}
                         key={s.id}
                     >
                         <div>
-                            <strong>{s.title}</strong>
+                            <strong><a href={`/sessions/${s.id}`}>{s.title}</a></strong>
                             <p>
                                 {s.environment.project.name} /{" "}
                                 {s.environment.name} · {s.profile.path}
                             </p>
                         </div>
-                        <span className="badge">{sessionStatus(s)}</span>
-                    </a>
+                        <div className="session-row-actions">
+                            <span className="badge">{sessionStatus(s)}</span>
+                            <DeleteControl action={`/sessions/${s.id}`} csrf={csrf} label="Delete session" />
+                        </div>
+                    </div>
                 ))}
                 {visibleSessions.length === 0 && (
                     <p>
@@ -442,7 +461,7 @@ function App({ data: initialData }: { data: Payload }) {
                     )}
                     {data.page === "home" ? (
                         projectsView ? (
-                            <ProjectsAndSessions {...data.props} />
+                            <ProjectsAndSessions {...data.props} csrf={data.csrf} />
                         ) : (
                             <Home {...data.props} />
                         )

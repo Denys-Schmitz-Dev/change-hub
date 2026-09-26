@@ -60,7 +60,7 @@ test('critic cycle 1: failed actions retain context and can be retried', async (
  await expect(page.getByRole('alert')).toHaveCount(0); expect(calls).toBe(2);
 });
 
-test('critic cycle 1: code review shortcuts and failure details are discoverable on mobile', async ({ page }, info) => {
+test('critic cycle 1: overview review and failure details are discoverable on mobile', async ({ page }, info) => {
  info.annotations.push({ type: 'covers', description: 'change-hub/resources/js/SuiteComparisons.tsx' }, { type: 'covers', description: 'change-hub/resources/js/TestResults.tsx' }, { type: 'covers', description: 'change-hub/resources/js/DevDetails.tsx' });
  const data = payload(); const testCase = data.props.session.suites[0].runs[0].report.tests[0];
  testCase.outcome = 'unexpected'; testCase.attempts[0] = { status: 'failed', retry: 0, duration: 4935, errors: ['Expected confirmation\n' + 'Long diagnostic output\n'.repeat(25)] };
@@ -68,8 +68,6 @@ test('critic cycle 1: code review shortcuts and failure details are discoverable
  const failure = page.getByRole('region', { name: 'Failure output' }).locator('details');
  await expect(failure).not.toHaveAttribute('open'); await failure.locator('summary').click();
  await expect(failure.locator('pre')).toBeVisible(); await failure.locator('summary').click();
- await page.getByRole('link', { name: 'Review changed code', exact: true }).click();
- await expect(page.getByRole('button', { name: 'Change review', exact: true })).toHaveAttribute('aria-pressed', 'true');
  await expect(page.getByRole('link', { name: 'Return to capture controls' })).toBeVisible();
  await expect(page.getByRole('region', { name: 'Change review' })).toContainText('Missing or incomplete runs cannot establish verification');
  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

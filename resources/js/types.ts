@@ -37,12 +37,20 @@ export interface Environment {
 export interface Session {
     baseline_available?: boolean;
     baseline?: { suite_ids: number[]; runs: (SuiteRun & { config: string; test_suite_id: number })[] } | null;
+    review_approvals?: ReviewApproval[] | null;
     id: number;
     title: string;
     environment: Environment;
     profile: { baseURL: string; path: string; adapter: string };
     runs: Run[];
     suites: TestSuite[];
+}
+export interface ReviewApproval {
+    run_id: number;
+    file: string;
+    reason: "covered_elsewhere" | "no_test_needed" | "manually_verified" | "other";
+    note: string | null;
+    approved_at: string;
 }
 export interface Props {
     projects?: Project[];
@@ -76,6 +84,7 @@ export interface SuiteAttachment {
     contentType: string;
 }
 export interface SuiteCase {
+    suiteName?: string;
     coveredFiles?: string[];
     file?: string;
     diagnostics?: { console: string[]; network: string[]; warnings: string[] };
@@ -94,6 +103,7 @@ export interface SuiteCase {
     attachments: SuiteAttachment[];
 }
 export interface SuiteRun {
+    suite_name?: string;
     config?: string;
     artifact_base?: string;
     capture_video: boolean;

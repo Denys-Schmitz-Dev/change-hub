@@ -1,36 +1,45 @@
 import { useState } from "react";
 import { changeReview } from "./change-review";
 import { TestRows } from "./TestResults";
-import type { SuiteRun } from "./types";
+import { Form } from "./forms";
+import type { ReviewApproval, SuiteRun } from "./types";
 
 export function ChangeReview({
     before,
     after,
+    sessionId,
+    csrf,
+    approvals,
+    approvalRunIds,
 }: {
     before?: SuiteRun;
     after?: SuiteRun;
+    sessionId: number;
+    csrf: string;
+    approvals: ReviewApproval[];
+    approvalRunIds?: number[];
 }) {
     const [query, setQuery] = useState(""),
         [gapsOnly, setGapsOnly] = useState(false);
     const review = changeReview(before, after);
+    const approvalFor = (file: string) =>
+        approvals.find(
+            (approval) =>
+                (approvalRunIds ?? (after ? [after.id] : [])).includes(Number(approval.run_id)) && approval.file === file,
+        );
+    const unresolved = review.areas.filter(
+        (area) => area.gaps.length && !approvalFor(area.file),
+    ).length;
+    const approved = review.areas.filter((area) => approvalFor(area.file)).length;
     const areas = review.areas.filter(
         (area) =>
-            (!gapsOnly || area.gaps.length) &&
+            (!gapsOnly || (area.gaps.length && !approvalFor(area.file))) &&
             `${area.file} ${area.contracts.map((change) => (change.after ?? change.before)!.label).join(" ")}`
                 .toLowerCase()
                 .includes(query.toLowerCase()),
     );
     return (
-        <section className="change-review" aria-label="Change review">
-            <div className="review-intro">
-                <span className="eyebrow">CHANGE → EVIDENCE → REVIEW</span>
-                <h2>What changed. What needs a closer look.</h2>
-                <p>
-                    Review the selected suite and after version. Test
-                    declarations connect files to evidence; they do not verify
-                    every changed contract.
-                </p>
-            </div>
+        <div className="change-review" role="region" aria-label="Change review">
             <dl className="review-metrics">
                 <div>
                     <dt>Changed contracts</dt>
@@ -41,12 +50,12 @@ export function ChangeReview({
                     <dd>{review.comparable ? review.areas.length : "—"}</dd>
                 </div>
                 <div className="attention-metric">
-                    <dt>Files with evidence gaps</dt>
-                    <dd>{review.comparable ? review.needsAttention : "—"}</dd>
+                    <dt>Unresolved evidence gaps</dt>
+                    <dd>{review.comparable ? unresolved : "—"}</dd>
                 </div>
                 <div>
-                    <dt>Human visual approval</dt>
-                    <dd className="text-metric">Not recorded</dd>
+                    <dt>Approved exceptions</dt>
+                    <dd>{review.comparable ? approved : "—"}</dd>
                 </div>
             </dl>
             {!review.comparable ? (
@@ -81,7 +90,7 @@ export function ChangeReview({
                             aria-pressed={gapsOnly}
                             onClick={() => setGapsOnly(!gapsOnly)}
                         >
-                            Evidence gaps only
+                            Unresolved gaps only
                         </button>
                         <span>
                             {areas.length} of {review.areas.length} files
@@ -94,8 +103,11 @@ export function ChangeReview({
                                 : "No changes detected in scanned contracts. This is not a full repository coverage check."}
                         </p>
                     )}
-                    {areas.map((area) => (
-                        <details className="review-area" key={area.file}>
+                    {areas.map((area) => {
+                        const approval = approvalFor(area.file);
+                        return (
+                        <div className="review-area-card" key={area.file}>
+                        <details className="review-area">
                             <summary>
                                 <span className="area-title">
                                     <code>{area.file}</code>
@@ -106,9 +118,11 @@ export function ChangeReview({
                                     </small>
                                 </span>
                                 <span
-                                    className={`review-status ${area.gaps.length ? "attention" : "available"}`}
+                                    className={`review-status ${approval ? "approved" : area.gaps.length ? "attention" : "available"}`}
                                 >
-                                    {area.gaps.length
+                                    {approval
+                                        ? "Approved exception"
+                                        : area.gaps.length
                                         ? "Evidence gaps"
                                         : "Evidence available"}
                                 </span>
@@ -148,11 +162,11 @@ export function ChangeReview({
                                             before accepting this change.
                                         </p>
                                     )}
-                                    <p>
-                                        Human visual approval:{" "}
-                                        <strong>not recorded</strong>. Viewing
-                                        an artifact does not mark it approved.
-                                    </p>
+                                    {approval ? (
+                                        <div className="review-approval">
+                                            <p><strong>Gap approved</strong> · {new Date(approval.approved_at).toLocaleString()}</p>
+                                        </div>
+                                    ) : null}
                                 </div>
                                 <div className="area-section">
                                     <h3>Declared tests & observed evidence</h3>
@@ -180,9 +194,30 @@ export function ChangeReview({
                                 </div>
                             </div>
                         </details>
-                    ))}
+                        {area.gaps.length && after && (
+                            <div className="review-approval-actions">
+                                {approval ? (
+                                    <Form action={`/sessions/${sessionId}/review-approvals`} csrf={csrf}>
+                                        <input type="hidden" name="_method" value="DELETE" />
+                                        <input type="hidden" name="run_id" value={approval.run_id} />
+                                        <input type="hidden" name="file" value={approval.file} />
+                                        <button className="reject" aria-label={`Revoke approval for ${area.file}`} title="Revoke approval">×</button>
+                                    </Form>
+                                ) : (
+                                    <Form action={`/sessions/${sessionId}/review-approvals`} csrf={csrf}>
+                                        <input type="hidden" name="run_id" value={after.id} />
+                                        <input type="hidden" name="file" value={area.file} />
+                                        <input type="hidden" name="reason" value="manually_verified" />
+                                        <button className="approve" aria-label={`Approve gap for ${area.file}`} title="Approve gap">✓</button>
+                                    </Form>
+                                )}
+                            </div>
+                        )}
+                        </div>
+                        );
+                    })}
                 </>
             )}
-        </section>
+        </div>
     );
 }

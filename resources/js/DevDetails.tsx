@@ -1,5 +1,4 @@
 import { TestExplorer } from "./TestExplorer";
-import { ChangeReview } from "./ChangeReview";
 import { useState } from "react";
 import type { ContractEntry, SuiteRun } from "./types";
 import {
@@ -77,7 +76,7 @@ export function DevDetails({
     const [query, setQuery] = useState("");
     const [view, setView] = useState(() => {
         const section = new URLSearchParams(location.search).get("section");
-        return section && ["tests", "review", "contracts"].includes(section) ? section : "tests";
+        return section && ["tests", "contracts"].includes(section) ? section : "tests";
     });
     const left = before?.report?.contracts,
         right = after?.report?.contracts;
@@ -95,7 +94,6 @@ export function DevDetails({
             >
                 {[
                     ["tests", "Test explorer"],
-                    ["review", "Change review"],
                     ["contracts", "Contract diffs"],
                 ].map(([value, label]) => (
                     <button
@@ -108,13 +106,6 @@ export function DevDetails({
                     </button>
                 ))}
             </div>
-            {view === "review" && (
-                <ChangeReview
-                    key={`${before?.id}-${after?.id}`}
-                    before={before}
-                    after={after}
-                />
-            )}
             {view === "tests" && (
                 <TestExplorer
                     key={`${before?.id}-${after?.id}`}
