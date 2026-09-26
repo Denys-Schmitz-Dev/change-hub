@@ -159,6 +159,28 @@ class HubTest extends TestCase
         });
     }
 
+    public function test_session_detail_only_sends_the_latest_after_run_for_each_suite(): void
+    {
+        $suite = TestSuite::factory()->create();
+        SuiteRun::factory()->create([
+            'test_suite_id' => $suite->id,
+            'phase' => 'after',
+            'status' => 'complete',
+            'report' => ['marker' => 'older after run'],
+        ]);
+        SuiteRun::factory()->create([
+            'test_suite_id' => $suite->id,
+            'phase' => 'after',
+            'status' => 'complete',
+            'report' => ['marker' => 'latest after run'],
+        ]);
+
+        $this->get(route('sessions.show', $suite->session))
+            ->assertOk()
+            ->assertSee('latest after run')
+            ->assertDontSee('older after run');
+    }
+
     public function test_blade_escapes_project_content(): void
     {
         Project::factory()->create(['name' => '<script>alert(1)</script>']);

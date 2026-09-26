@@ -34,7 +34,20 @@ class SessionController extends Controller
     {
         app(SessionBaselineAction::class)->handle($session);
         $session->refresh();
-        $session->load('environment.project', 'runs', 'suites.runs');
+        $session->load('environment.project', 'runs', 'suites');
+        $session->suites->each(function ($suite): void {
+            $latestRun = $suite->runs()->reorder()->latest('id')->first();
+            $latestAfterRun = $suite->runs()
+                ->where('phase', 'after')
+                ->reorder()
+                ->latest('id')
+                ->first();
+
+            $suite->setRelation(
+                'runs',
+                collect([$latestRun, $latestAfterRun])->filter()->unique('id')->sortBy('id')->values(),
+            );
+        });
         $active = $session->suites->contains(fn ($suite) => $suite->runs->contains(fn ($run) => in_array($run->status, ['queued', 'running']))) || $session->runs->contains(fn ($run) => in_array($run->status, ['queued', 'running']));
 
         return $this->hub('session', compact('session', 'active'));
