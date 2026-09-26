@@ -35,6 +35,8 @@ export interface Environment {
     project: Project;
 }
 export interface Session {
+    baseline_available?: boolean;
+    baseline?: { suite_ids: number[]; runs: (SuiteRun & { config: string; test_suite_id: number })[] } | null;
     id: number;
     title: string;
     environment: Environment;
@@ -92,6 +94,8 @@ export interface SuiteCase {
     attachments: SuiteAttachment[];
 }
 export interface SuiteRun {
+    config?: string;
+    artifact_base?: string;
     capture_video: boolean;
     id: number;
     phase: string;
@@ -108,6 +112,7 @@ export interface SuiteRun {
     } | null;
 }
 export interface TestSuite {
+    test_selection?: { key: string; file: string; title: string; project: string; listEntry: string }[] | null;
     selected_tests: string[] | null;
     test_catalog: Pick<SuiteCase, "key" | "file" | "title" | "project">[] | null;
     capture_video: boolean;

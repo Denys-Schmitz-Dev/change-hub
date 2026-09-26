@@ -53,7 +53,7 @@ export function ChangeReview({
                 <p className="notice">
                     Capture two completed runs with source snapshots to review
                     changes. Missing or incomplete runs cannot establish
-                    verification.
+                    verification. <a href="?tab=overview">Return to capture controls</a>
                 </p>
             ) : (
                 <>
@@ -173,7 +173,7 @@ export function ChangeReview({
                                                 ).length
                                             }
                                             /{area.tests.length} tests recorded.
-                                            Inspect events in Runtime logs;
+                                            Inspect events in Test explorer;
                                             compare recordings in Videos.
                                         </p>
                                     )}

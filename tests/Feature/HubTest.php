@@ -147,6 +147,18 @@ class HubTest extends TestCase
         $this->get(route('artifacts.show', $artifact))->assertNotFound();
     }
 
+    public function test_home_includes_suite_status_without_full_reports(): void
+    {
+        $run = SuiteRun::factory()->create(['status' => 'complete', 'phase' => 'before', 'report' => ['private_report_marker' => 'large report']]);
+        $this->get(route('sessions.show', $run->suite->session))->assertOk();
+        $this->get(route('home'))->assertOk()->assertDontSee('private_report_marker')->assertViewHas('payload', function (array $payload) use ($run): bool {
+            $session = $payload['props']['sessions']->firstWhere('id', $run->suite->change_session_id);
+            $listed = $session->suites->first()->runs->first();
+
+            return $listed->status === 'complete' && $listed->phase === 'before' && ! array_key_exists('report', $listed->getAttributes());
+        });
+    }
+
     public function test_blade_escapes_project_content(): void
     {
         Project::factory()->create(['name' => '<script>alert(1)</script>']);

@@ -1,32 +1,90 @@
-import { useEffect, useState } from "react";
 import type { Payload } from "./types";
-import { Form } from "./forms";
 import { SuiteComparisons } from "./SuiteComparisons";
 
-export function Comparison({ data }: { data: Payload }) {
+export function Comparison({ data, tab }: { data: Payload; tab: string }) {
     const { session, active } = data.props;
-    const [tab, setTab] = useState(["dev", "screenshots"].includes(new URLSearchParams(location.search).get("tab") ?? "") ? new URLSearchParams(location.search).get("tab")! : "videos");
-    useEffect(() => {
-        if (!active) return;
-        const timer = setTimeout(() => location.reload(), 2500);
-        return () => clearTimeout(timer);
-    }, [active]);
     if (!session) return null;
-    const hasBaseline = session.suites.some(suite => suite.runs.some(run => run.phase === "before" && run.status === "complete"));
-    const needsBaseline = session.suites.some(suite => !suite.runs.some(run => run.phase === "before" && run.status === "complete"));
-    return <>
-        <div className="heading"><div><span className="eyebrow">{session.environment.project.name} / {session.environment.name}</span><h1>{session.title}</h1></div>
-            <div className="actions">{["before", "after"].map(phase => <Form key={phase} action={`/sessions/${session.id}/captures`} csrf={data.csrf}>
-                <input type="hidden" name="phase" value={phase} />
-                <button className={phase === "after" ? "primary" : ""} disabled={active || !session.suites.length || (phase === "before" ? !needsBaseline : !hasBaseline)}>
-                    {phase === "before" && hasBaseline && !needsBaseline ? "Baseline locked" : `Capture ${phase}`}
+    return (
+        <>
+            <div className="heading session-heading">
+                <div>
+                    <span className="eyebrow">
+                        {session.environment.project.name} /{" "}
+                        {session.environment.name}
+                    </span>
+                    <h1>{session.title}</h1>
+                </div>
+            </div>
+            {active && (
+                <div role="status" className="notice" data-refresh>
+                    Tests are queued or running. Results update automatically; you can keep reviewing.
+                </div>
+            )}
+            <SuiteComparisons data={data} tab={tab} />
+        </>
+    );
+}
+
+export function SessionTabs({
+    tab,
+    setTab,
+}: {
+    tab: string;
+    setTab: (tab: string) => void;
+}) {
+    return (
+        <div
+            className="comparison-tabs"
+            role="tablist"
+            aria-label="Comparison views"
+        >
+            {[
+                ["overview", "Overview"],
+                ["videos", "Videos"],
+                ["dev", "Dev details"],
+            ].map(([value, label]) => (
+                <button
+                    type="button"
+                    role="tab"
+                    key={value}
+                    id={`tab-${value}`}
+                    aria-controls={`panel-${value}`}
+                    aria-selected={tab === value}
+                    onKeyDown={(event) => {
+                        const tabs = Array.from(
+                            event.currentTarget.parentElement!.querySelectorAll<HTMLButtonElement>(
+                                '[role="tab"]',
+                            ),
+                        );
+                        const index = tabs.indexOf(event.currentTarget);
+                        const next =
+                            event.key === "ArrowRight"
+                                ? (index + 1) % tabs.length
+                                : event.key === "ArrowLeft"
+                                  ? (index + tabs.length - 1) % tabs.length
+                                  : event.key === "Home"
+                                    ? 0
+                                    : event.key === "End"
+                                      ? tabs.length - 1
+                                      : -1;
+                        if (next >= 0) {
+                            event.preventDefault();
+                            tabs[next].focus();
+                            tabs[next].click();
+                        }
+                    }}
+                    tabIndex={tab === value ? 0 : -1}
+                    onClick={() => {
+                        if (tab === value) return;
+                        setTab(value);
+                        const url = new URL(location.href);
+                        url.searchParams.set("tab", value);
+                        history.pushState(null, "", url);
+                    }}
+                >
+                    {label}
                 </button>
-            </Form>)}</div>
+            ))}
         </div>
-        {active && <div role="status" className="notice" data-refresh>Tests are queued or running.</div>}
-        <div className="comparison-tabs" role="tablist" aria-label="Comparison views">{[["videos", "Videos"], ["screenshots", "Screenshots"], ["dev", "Dev details"]].map(([value, label]) => <button type="button" role="tab" key={value} id={`tab-${value}`} aria-controls={`panel-${value}`} aria-selected={tab === value} onClick={() => {
-            setTab(value); const url = new URL(location.href); url.searchParams.set("tab", value); history.replaceState(null, "", url);
-        }}>{label}</button>)}</div>
-        <SuiteComparisons data={data} tab={tab} />
-    </>;
+    );
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\CreateChangeSessionAction;
+use App\Actions\SessionBaselineAction;
 use App\Http\Requests\StoreSessionRequest;
 use App\Models\ChangeSession;
 use App\Models\Environment;
@@ -27,6 +28,8 @@ class SessionController extends Controller
 
     public function show(ChangeSession $session): View
     {
+        app(SessionBaselineAction::class)->handle($session);
+        $session->refresh();
         $session->load('environment.project', 'runs', 'suites.runs');
         $active = $session->suites->contains(fn ($suite) => $suite->runs->contains(fn ($run) => in_array($run->status, ['queued', 'running']))) || $session->runs->contains(fn ($run) => in_array($run->status, ['queued', 'running']));
 

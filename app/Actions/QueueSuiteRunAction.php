@@ -14,15 +14,21 @@ class QueueSuiteRunAction
     public function handle(TestSuite $suite, string $phase): SuiteRun
     {
         return DB::transaction(function () use ($suite, $phase): SuiteRun {
-            ChangeSession::whereKey($suite->change_session_id)->lockForUpdate()->firstOrFail();
+            $session = ChangeSession::whereKey($suite->change_session_id)->lockForUpdate()->firstOrFail();
             $suite = TestSuite::whereKey($suite->id)->lockForUpdate()->firstOrFail();
             if ($suite->runs()->whereIn('status', ['queued', 'running'])->exists()) {
                 throw ValidationException::withMessages(['suite' => 'This suite is already running.']);
             }
-            $baseline = $suite->runs()->where('phase', 'before')->where('status', 'complete')->exists();
-            $sessionBaseline = $suite->session->suites()->whereHas('runs', fn ($query) => $query->where('phase', 'before')->where('status', 'complete'))->exists();
-            if (($phase === 'before' && $baseline) || ($phase === 'after' && ! $sessionBaseline)) {
-                throw ValidationException::withMessages(['suite' => $baseline ? 'The suite baseline is locked. Add another suite to start over.' : 'Capture this suite’s before state first.']);
+            $baseline = app(SessionBaselineAction::class)->handle($session);
+            if ($phase === 'before') {
+                if ($baseline !== null && (! in_array($suite->id, $baseline['suite_ids'], true) || collect($baseline['runs'])->contains('test_suite_id', $suite->id))) {
+                    throw ValidationException::withMessages(['suite' => 'The session baseline is locked and reused by every suite. Create a new session for a new baseline.']);
+                }
+                if ($baseline === null) {
+                    $session->update(['baseline' => ['suite_ids' => [$suite->id], 'runs' => []]]);
+                }
+            } elseif (empty($baseline['runs'])) {
+                throw ValidationException::withMessages(['suite' => 'Capture the session baseline first.']);
             }
             $run = $suite->runs()->create(['phase' => $phase, 'status' => 'queued', 'capture_video' => true]);
             RunTestSuite::dispatch($run->id)->afterCommit();

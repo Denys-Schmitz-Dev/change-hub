@@ -23,13 +23,19 @@ class QueueCaptureAction
             if ($session->runs()->whereIn('status', ['queued', 'running'])->exists() || $suites->contains(fn ($suite): bool => $suite->runs()->whereIn('status', ['queued', 'running'])->exists())) {
                 throw ValidationException::withMessages(['capture' => 'A run is already queued or running for this session.']);
             }
-            $hasBaseline = $suites->contains(fn ($suite): bool => $suite->runs()->where('phase', 'before')->where('status', 'complete')->exists());
+            $baseline = app(SessionBaselineAction::class)->handle($session);
+            $hasBaseline = ! empty($baseline['runs']);
             if ($phase === 'after' && ! $hasBaseline) {
-                throw ValidationException::withMessages(['capture' => 'Capture a before run first.']);
+                throw ValidationException::withMessages(['capture' => 'Capture the session baseline first.']);
             }
-            $pending = $suites->filter(fn ($suite): bool => $phase === 'after' || ! $suite->runs()->where('phase', 'before')->where('status', 'complete')->exists());
+            if ($phase === 'before' && $baseline === null) {
+                $baseline = ['suite_ids' => $suites->pluck('id')->all(), 'runs' => []];
+                $session->update(['baseline' => $baseline]);
+            }
+            $capturedIds = array_column($baseline['runs'] ?? [], 'test_suite_id');
+            $pending = $suites->filter(fn ($suite): bool => $phase === 'after' || (in_array($suite->id, $baseline['suite_ids'] ?? [], true) && ! in_array($suite->id, $capturedIds, true)));
             if ($pending->isEmpty()) {
-                throw ValidationException::withMessages(['capture' => 'All suite baselines are locked.']);
+                throw ValidationException::withMessages(['capture' => 'The session baseline is locked and reused by every suite. Create a new session for a new baseline.']);
             }
             $runs = [];
             foreach ($pending as $suite) {

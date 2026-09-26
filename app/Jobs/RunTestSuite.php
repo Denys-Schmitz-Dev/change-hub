@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Actions\SessionBaselineAction;
 use App\Models\SuiteRun;
 use App\Services\SuiteRunner;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -34,6 +35,9 @@ class RunTestSuite implements ShouldQueue
         try {
             $report = $runner->run($run);
             $run->update(['status' => $report['status'], 'error' => $report['error'] ?? null, 'report' => $report]);
+            if ($run->phase === 'before' && $run->status === 'complete') {
+                app(SessionBaselineAction::class)->handle($run->suite->session);
+            }
         } catch (Throwable $error) {
             $this->failed($error);
         }

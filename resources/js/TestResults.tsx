@@ -1,3 +1,4 @@
+import { plainOutput } from "./plain-output";
 import type { SuiteCase, SuiteRun } from "./types";
 
 export function TestRows({
@@ -35,7 +36,7 @@ export function TestRows({
                                 .map((attachment) => (
                                     <a
                                         key={attachment.key}
-                                        href={`/suite-runs/${run.id}/artifacts/${attachment.file}`}
+                                        href={run.artifact_base?.replace("__FILE__", attachment.file) ?? `/suite-runs/${run.id}/artifacts/${attachment.file}`}
                                         target="_blank"
                                         rel="noopener"
                                     >
@@ -69,11 +70,11 @@ export function FailureOutput({ run }: { run?: SuiteRun }) {
         <section className="failure-output" aria-label="Failure output">
             <h3>Failure output</h3>
             {run?.report?.errors?.map((error, index) => (
-                <pre key={index}>{error}</pre>
+                <pre key={index}>{plainOutput(error)}</pre>
             ))}
             {failures.map((test) => (
-                <article key={test.key}>
-                    <h4>
+                <details key={test.key}>
+                    <summary>
                         {test.title}{" "}
                         <span className="review-status attention">
                             {test.outcome === "flaky"
@@ -82,7 +83,7 @@ export function FailureOutput({ run }: { run?: SuiteRun }) {
                                   ? "Expected failure"
                                   : "Failed"}
                         </span>
-                    </h4>
+                    </summary>
                     <small>{test.project || "Default project"}</small>
                     {test.attempts
                         .filter(
@@ -97,7 +98,7 @@ export function FailureOutput({ run }: { run?: SuiteRun }) {
                                     {attempt.status}
                                 </p>
                                 <pre>
-                                    {attempt.errors.join("\n") ||
+                                    {plainOutput(attempt.errors.join("\n")) ||
                                         "No error output recorded."}
                                 </pre>
                             </div>
@@ -107,7 +108,7 @@ export function FailureOutput({ run }: { run?: SuiteRun }) {
                             attempt.status !== "passed" &&
                             attempt.status !== "skipped",
                     ) && <p>No failed attempt output recorded.</p>}
-                </article>
+                </details>
             ))}
         </section>
     );

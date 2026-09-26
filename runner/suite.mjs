@@ -19,6 +19,11 @@ try {
  await mkdir(output,{recursive:true})
  const args=[cli,'test','--config',config,'--reporter=json','--output',output,'--trace=on','--workers=1','--global-timeout=180000']
  if(request.grep)args.push('--grep',request.grep)
+ if(request.testSelection?.length) {
+  const list=join(request.output,'selected-tests.txt')
+  await writeFile(list,request.testSelection.map(test=>test.listEntry).join('\n'))
+  args.push('--test-list',list)
+ }
  report.command=['node',...args]
  report.sourceBefore=await gitState(repository)
  report.contracts=await snapshotContracts(repository)
@@ -31,6 +36,7 @@ try {
  report.exitCode=exitCode
  const raw=JSON.parse(await readFile(join(request.output,'playwright.json'),'utf8'))
  Object.assign(report,await importSuiteReport(raw,request.output,{captureVideo:report.captureVideo}))
+ if(request.testSelection?.some(selected=>!report.tests.some(test=>test.key===selected.key)))throw new Error('Some selected tests were not found. Refresh the test selection before capturing again.')
  report.sourceAfter=await gitState(repository)
  if(report.sourceBefore.fingerprint!==report.sourceAfter.fingerprint)throw new Error('Source changed during this suite run. Retry with a stable working tree.')
  if(report.errors.length || report.tests.some(t=>t.attempts.some(a=>a.status==='interrupted')))throw new Error(report.errors.join('\n')||'Suite execution was interrupted.');

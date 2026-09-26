@@ -13,7 +13,6 @@ export function CoverageSummary({ before, after, selectedTests, showAreas = true
             <dl className="test-metrics">{metrics.map(([label, value]) => <div key={label} className={label === "Failed" && value ? "test-failure" : ""}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
             {!!summary.run?.report?.errors?.length && <p role="alert">{summary.run.report.errors.length} runner errors</p>}
         </>}
-        <FailureOutput run={summary.run} />
         <div className="evidence-counts">
             <span>New tests: <strong>{summary.added?.length ?? "Not compared"}</strong></span>
             <span>Removed tests: <strong>{summary.removed?.length ?? "Not compared"}</strong></span>
@@ -35,5 +34,6 @@ export function CoverageSummary({ before, after, selectedTests, showAreas = true
                 </div>)}
             </>}
         </details>
+        <FailureOutput run={summary.run} />
     </section>;
 }

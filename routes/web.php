@@ -24,3 +24,11 @@ Route::post('/suites/{suite}/runs', [TestSuiteController::class, 'run'])->name('
 Route::post('/suites/{suite}/video', [TestSuiteController::class, 'updateVideo'])->name('suites.video');
 Route::post('/suites/{suite}/tests', [TestSuiteController::class, 'discover'])->name('suites.tests');
 Route::get('/suite-runs/{run}/artifacts/{file}', [TestSuiteController::class, 'artifact'])->where('file', '[a-f0-9]+\.(png|zip|txt|webm)')->name('suites.artifact');
+
+Route::patch('/suites/{suite}', [TestSuiteController::class, 'update'])->name('suites.update');
+Route::delete('/suites/{suite}', [TestSuiteController::class, 'destroy'])->name('suites.destroy');
+
+Route::post('/sessions/{session}/test-catalog', [TestSuiteController::class, 'catalog'])->name('sessions.test-catalog');
+Route::post('/sessions/{session}/selected-tests', [TestSuiteController::class, 'addSelected'])->name('sessions.selected-tests');
+
+Route::get('/sessions/{session}/baseline-artifacts/{runId}/{file}', [TestSuiteController::class, 'baselineArtifact'])->whereNumber('runId')->where('file', '[a-f0-9]+\\.(png|zip|txt|webm)')->name('sessions.baseline-artifact');

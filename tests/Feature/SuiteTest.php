@@ -19,6 +19,70 @@ class SuiteTest extends TestCase
 {
     use LazilyRefreshDatabase;
 
+    public function test_suite_rename_preserves_captures_and_selection(): void
+    {
+        $session = ChangeSession::factory()->create(['profile' => ['repository' => base_path()]]);
+        $suite = TestSuite::factory()->create(['change_session_id' => $session->id, 'config' => 'playwright.config.js', 'selected_tests' => ['chosen']]);
+        $run = SuiteRun::factory()->create(['test_suite_id' => $suite->id, 'status' => 'complete']);
+        $this->patch(route('suites.update', $suite), ['name' => 'Renamed', 'config' => $suite->config, 'grep' => $suite->grep])->assertSessionHasNoErrors()->assertRedirect();
+        $this->assertSame('Renamed', $suite->fresh()->name);
+        $this->assertSame(['chosen'], $suite->fresh()->selected_tests);
+        $this->assertModelExists($run);
+    }
+
+    public function test_config_changes_require_confirmation_and_reset_only_that_suite(): void
+    {
+        $session = ChangeSession::factory()->create(['profile' => ['repository' => base_path()]]);
+        $suite = TestSuite::factory()->create(['change_session_id' => $session->id, 'config' => 'playwright.config.js', 'test_catalog' => [['key' => 'old']], 'selected_tests' => ['old']]);
+        $run = SuiteRun::factory()->create(['test_suite_id' => $suite->id, 'status' => 'complete']);
+        $other = SuiteRun::factory()->create(['status' => 'complete']);
+        $directory = storage_path('app/private/suites/'.$run->id);
+        File::ensureDirectoryExists($directory);
+        File::put($directory.'/fixture.txt', 'artifact');
+        $data = ['name' => 'Changed', 'config' => 'playwright.config.js', 'grep' => 'new filter'];
+        $this->patch(route('suites.update', $suite), $data)->assertSessionHasErrors('reset_history');
+        $this->assertModelExists($run);
+        $this->patch(route('suites.update', $suite), $data + ['reset_history' => true])->assertSessionHasNoErrors();
+        $this->assertModelMissing($run);
+        $this->assertModelExists($other);
+        $this->assertNull($suite->fresh()->test_catalog);
+        $this->assertNull($suite->fresh()->selected_tests);
+        $this->assertDirectoryExists($directory);
+    }
+
+    public function test_suite_management_rejects_invalid_paths_and_busy_sessions(): void
+    {
+        $session = ChangeSession::factory()->create(['profile' => ['repository' => base_path()]]);
+        $suite = TestSuite::factory()->create(['change_session_id' => $session->id, 'config' => 'playwright.config.js']);
+        $data = ['name' => 'Changed', 'config' => '../outside.config.js'];
+        $this->patch(route('suites.update', $suite), $data)->assertSessionHasErrors('config');
+        $this->patch(route('suites.update', $suite), ['name' => '', 'config' => ['invalid']])->assertSessionHasErrors(['name', 'config']);
+        $other = TestSuite::factory()->create(['change_session_id' => $session->id]);
+        $run = SuiteRun::factory()->create(['test_suite_id' => $other->id, 'status' => 'queued']);
+        foreach (['queued', 'running'] as $status) {
+            $run->update(['status' => $status]);
+            $this->patch(route('suites.update', $suite), ['name' => 'Changed', 'config' => $suite->config])->assertSessionHasErrors('suite');
+            $this->delete(route('suites.destroy', $suite))->assertSessionHasErrors('suite');
+        }
+        $this->assertModelExists($suite);
+        $this->assertNotSame('Changed', $suite->fresh()->name);
+    }
+
+    public function test_removing_suite_deletes_its_captures_and_artifacts_only(): void
+    {
+        $run = SuiteRun::factory()->create(['status' => 'complete', 'phase' => 'after']);
+        $other = SuiteRun::factory()->create(['status' => 'complete']);
+        $suite = $run->suite;
+        $directory = storage_path('app/private/suites/'.$run->id);
+        File::ensureDirectoryExists($directory);
+        File::put($directory.'/fixture.txt', 'artifact');
+        $this->delete(route('suites.destroy', $suite))->assertSessionHasNoErrors()->assertRedirect(route('sessions.show', $suite->change_session_id));
+        $this->assertModelMissing($suite);
+        $this->assertModelMissing($run);
+        $this->assertModelExists($other);
+        $this->assertDirectoryDoesNotExist($directory);
+    }
+
     public function test_capture_queues_only_suite_runs_for_both_phases(): void
     {
         Queue::fake();
@@ -46,10 +110,10 @@ class SuiteTest extends TestCase
         Queue::fake();
         $baseline = SuiteRun::factory()->create(['status' => 'complete']);
         TestSuite::factory()->create(['change_session_id' => $baseline->suite->change_session_id]);
-        $this->post(route('captures.store', $baseline->suite->session), ['phase' => 'before'])->assertSessionHasNoErrors()->assertRedirect();
+        $this->post(route('captures.store', $baseline->suite->session), ['phase' => 'before'])->assertSessionHasErrors('capture');
         Queue::assertNotPushed(CaptureEnvironment::class);
-        Queue::assertPushed(RunTestSuite::class, 1);
-        $this->assertDatabaseCount('suite_runs', 2);
+        Queue::assertNotPushed(RunTestSuite::class);
+        $this->assertDatabaseCount('suite_runs', 1);
         $this->assertSame('complete', $baseline->fresh()->status);
     }
 

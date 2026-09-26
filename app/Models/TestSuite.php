@@ -11,11 +11,11 @@ class TestSuite extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['change_session_id', 'name', 'config', 'grep', 'capture_video', 'test_catalog', 'selected_tests'];
+    protected $fillable = ['change_session_id', 'name', 'config', 'grep', 'capture_video', 'test_catalog', 'selected_tests', 'test_selection'];
 
     protected function casts(): array
     {
-        return ['capture_video' => 'boolean', 'test_catalog' => 'array', 'selected_tests' => 'array'];
+        return ['capture_video' => 'boolean', 'test_catalog' => 'array', 'selected_tests' => 'array', 'test_selection' => 'array'];
     }
 
     public function session(): BelongsTo
