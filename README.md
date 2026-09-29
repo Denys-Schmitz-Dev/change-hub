@@ -2,24 +2,50 @@
 
 A local Laravel application for capturing and comparing the before and after states of an existing web project. React and TypeScript render the dashboard, bundled by Vite. SQLite stores projects, environments, sessions, and queued jobs. Playwright runs in a local process or in a browser container on an existing Docker network.
 
-## Requirements
+## Clone and run on your device
 
-- PHP 8.4+ with SQLite, Composer, Node.js, and npm.
-- Git and an existing project with at least one commit.
-- Docker only if using the Docker browser mode.
+Requirements:
 
-## Setup and run
-
-From this directory:
+- Linux, macOS, or Windows through WSL2. Native Windows is not currently supported by the process/signal runner. This extraction was verified on Linux; macOS and WSL2 still need platform testing.
+- PHP 8.4+ with SQLite (`pdo_sqlite`), `pcntl`, and the extensions checked by Composer; Composer 2.
+- Node.js 24+ and npm; Git.
+- Internet access for the first dependency and Chromium download.
+- Docker is optional, only for Docker browser mode.
 
 ```sh
+git clone https://github.com/Denys-Schmitz-Dev/change-hub.git
+cd change-hub
 composer run setup
 php artisan hub:start
 ```
 
-Open **http://127.0.0.1:4320**. `hub:start` starts the dashboard and one database queue worker, bound to localhost. Stop both with Ctrl+C. Use `--port=4322` for another dashboard port. Setup builds the React frontend. For hot reload, run `npm run dev` in a second terminal and keep browsing the Laravel URL. See [DEVELOPMENT.md](DEVELOPMENT.md) for a hands-on code map and the next feature to build.
+Open **http://127.0.0.1:4320**. Stop the dashboard and worker with Ctrl+C. If that port is in use, start with `php artisan hub:start --port=4322` instead.
 
-The hub has its own `.env`, `database/database.sqlite`, dependencies, and private artifact storage. Copy this directory to a separate repository without requiring the personal site's Laravel app or frontend packages. Do not commit `.env`, the SQLite files, dependencies, or capture artifacts.
+Setup installs dependencies and Chromium, creates your private `.env` and application key, initializes SQLite, runs migrations, and builds the UI. It does not require the personal website, an account, or an API key. On Linux, if Chromium reports missing system libraries, run `npx playwright install --with-deps chromium` (system package installation may require administrator access).
+
+Then start the project you want to review, connect its local Git repository (with at least one commit), and add its running URL as an environment. See **Connect your project** below.
+
+For development with hot reload, use `php artisan hub:start --frontend`; see [DEVELOPMENT.md](DEVELOPMENT.md) for the code map. The `./hub-run` Bash helper starts this same development mode on Linux.
+
+This is an independent Git repository. It has its own `.env`, `database/database.sqlite`, dependencies, and private artifact storage. Do not commit `.env`, SQLite files, dependencies, or capture artifacts. Your sessions remain on your device.
+
+## Updating an installation
+
+Stop `hub-run`, back up `database/database.sqlite` and `storage/app/private`, and commit or stash your local source edits before updating. From this repository:
+
+```sh
+git pull --ff-only
+composer install --no-interaction
+npm ci
+php artisan migrate --force
+npm run build
+npx playwright install chromium
+php artisan hub:start
+```
+
+Do not rerun `composer run setup` for updates: it generates a new application key. Keep the existing `.env` and application key.
+
+Develop and push Hub changes in this repository. Publish GitHub releases with user-facing notes when an update is ready. The personal website links to this repository and its releases page; new releases appear there without a website redeploy. The portfolio screenshot and description are maintained separately in the personal-site repository.
 
 ## Connect your project
 

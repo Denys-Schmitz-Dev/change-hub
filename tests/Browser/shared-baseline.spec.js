@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 
 test('video cleanup: a later suite reuses the original baseline even after its suite is removed', async ({ page }, info) => {
- info.annotations.push({ type: 'covers', description: 'change-hub/app/Actions/SessionBaselineAction.php' }, { type: 'covers', description: 'change-hub/app/Actions/ManageTestSuiteAction.php' }, { type: 'covers', description: 'change-hub/app/Actions/QueueSuiteRunAction.php' });
+ info.annotations.push({ type: 'covers', description: 'app/Actions/SessionBaselineAction.php' }, { type: 'covers', description: 'app/Actions/ManageTestSuiteAction.php' }, { type: 'covers', description: 'app/Actions/QueueSuiteRunAction.php' });
  const repo = mkdtempSync(resolve('storage/framework/testing/shared-baseline-'));
  const git = args => execFileSync('git', args, { cwd: repo });
  try {

@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { recordedAction } from './support/recorded-actions.js';
 
-const annotations = [{ type: 'covers', description: 'change-hub/resources/js/TestPicker.tsx' }, { type: 'covers', description: 'change-hub/resources/js/SuiteManager.tsx' }, { type: 'covers', description: 'change-hub/app/Actions/CreateSelectedTestSuiteAction.php' }, { type: 'covers', description: 'change-hub/runner/suite.mjs' }];
+const annotations = [{ type: 'covers', description: 'resources/js/TestPicker.tsx' }, { type: 'covers', description: 'resources/js/SuiteManager.tsx' }, { type: 'covers', description: 'app/Actions/CreateSelectedTestSuiteAction.php' }, { type: 'covers', description: 'runner/suite.mjs' }];
 
 test('critic cycle 2: picker discovers tests and runs only the chosen test and browser project', async ({ page }, info) => {
  info.annotations.push(...annotations);

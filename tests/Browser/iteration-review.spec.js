@@ -19,7 +19,7 @@ function reviewPayload() {
 }
 
 test('iteration 01: browser history follows session review tabs', async ({ page }, testInfo) => {
-    testInfo.annotations.push({ type: 'covers', description: 'change-hub/resources/js/Comparison.tsx' }, { type: 'covers', description: 'change-hub/resources/js/app.tsx' });
+    testInfo.annotations.push({ type: 'covers', description: 'resources/js/Comparison.tsx' }, { type: 'covers', description: 'resources/js/app.tsx' });
     await page.goto('/');
     await renderReview(page, reviewPayload());
     await recordedAction(page, page.getByRole('tab', { name: 'Videos', exact: true }), 'click');
@@ -36,7 +36,7 @@ test('iteration 01: browser history follows session review tabs', async ({ page 
 });
 
 test('iteration 02: search stays within the selected project sessions', async ({ page }, testInfo) => {
-    testInfo.annotations.push({ type: 'covers', description: 'change-hub/resources/js/app.tsx' });
+    testInfo.annotations.push({ type: 'covers', description: 'resources/js/app.tsx' });
     const project = { id: 2, name: 'Change Hub', repository_path: '/workspace/change-hub', environments: [] };
     const other = { ...project, id: 3, name: 'Portfolio' };
     const session = (id, title, environment, owner = project) => ({ id, title, environment: { name: environment, project: owner }, profile: { path: '/' }, runs: [] });
@@ -64,7 +64,7 @@ test('iteration 02: search stays within the selected project sessions', async ({
 });
 
 test('iteration 03: preserve the reviewed capture version across reloads', async ({ page }, testInfo) => {
-    testInfo.annotations.push({ type: 'covers', description: 'change-hub/resources/js/SuiteComparisons.tsx' });
+    testInfo.annotations.push({ type: 'covers', description: 'resources/js/SuiteComparisons.tsx' });
     const payload = reviewPayload();
     const original = payload.props.session.suites[0];
     payload.props.session.suites.push({ ...original, id: 9001, name: 'Account workflow' });
@@ -91,7 +91,7 @@ test('iteration 03: preserve the reviewed capture version across reloads', async
 });
 
 test('critic pass 1: test search never shows evidence outside its results', async ({ page }, testInfo) => {
-    testInfo.annotations.push({ type: 'covers', description: 'change-hub/resources/js/TestExplorer.tsx' });
+    testInfo.annotations.push({ type: 'covers', description: 'resources/js/TestExplorer.tsx' });
     const payload = reviewPayload();
     const report = payload.props.session.suites[0].runs[2].report;
     const original = report.tests[0];
@@ -116,7 +116,7 @@ test('critic pass 1: test search never shows evidence outside its results', asyn
 });
 
 test('critic pass 1: assertion output is readable without terminal control codes', async ({ page }, testInfo) => {
-    testInfo.annotations.push({ type: 'covers', description: 'change-hub/resources/js/TestExplorer.tsx' }, { type: 'covers', description: 'change-hub/resources/js/TestResults.tsx' });
+    testInfo.annotations.push({ type: 'covers', description: 'resources/js/TestExplorer.tsx' }, { type: 'covers', description: 'resources/js/TestResults.tsx' });
     const payload = reviewPayload();
     const run = payload.props.session.suites[0].runs[2];
     const diagnostic = '\u001b[31mExpected confirmation\u001b[39m\n\u001b[2mCall log:\u001b[22m\ncheckout.spec.ts:12\n\u001b]8;;https://example.invalid\u0007Source link\u001b]8;;\u0007';
@@ -140,7 +140,7 @@ test('critic pass 1: assertion output is readable without terminal control codes
 });
 
 test('critic pass 1: a capture has one identity across all review tabs', async ({ page }, testInfo) => {
-    testInfo.annotations.push({ type: 'covers', description: 'change-hub/resources/js/SuiteComparisons.tsx' });
+    testInfo.annotations.push({ type: 'covers', description: 'resources/js/SuiteComparisons.tsx' });
     await renderReview(page, reviewPayload());
     const overviewVersion = page.getByRole('combobox', { name: 'After version for Checkout workflow', exact: true });
     await recordedAction(page, overviewVersion, 'selectOption', '2');

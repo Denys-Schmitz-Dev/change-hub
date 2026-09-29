@@ -15,7 +15,7 @@ async function fixture(page, data) {
 }
 
 test('critic cycle 1: active runs update without losing review state or reloading', async ({ page }, info) => {
- info.annotations.push({ type: 'covers', description: 'change-hub/resources/js/app.tsx' }, { type: 'covers', description: 'change-hub/resources/js/Comparison.tsx' });
+ info.annotations.push({ type: 'covers', description: 'resources/js/app.tsx' }, { type: 'covers', description: 'resources/js/Comparison.tsx' });
  await info.attach('critic-review', { body: Buffer.from('Independent live UI review. Initial: Design 7.7, Ease 6.8, Functionality 7.7; average 7.4. Cycle 1: Design 8.4, Ease 8.7, Functionality 8.4; average 8.5. Verified async refresh, error recovery, retained expanded settings, collapsed failure output, code-review shortcuts, suite status badges, and 390px layout. Remaining: dense suite settings, mobile path wrapping, no human approval workflow. E2E fixtures exercise UI states; existing suite integration checks exercise actual Laravel actions.'), contentType: 'text/plain' });
  const data = payload(true); let documents = 0; let updates = 0;
  page.on('request', request => { if (request.isNavigationRequest() && request.frame() === page.mainFrame()) documents++; });
@@ -34,7 +34,7 @@ test('critic cycle 1: active runs update without losing review state or reloadin
 });
 
 test('critic cycle 1: refreshing tests shows progress and preserves expanded settings', async ({ page }, info) => {
- info.annotations.push({ type: 'covers', description: 'change-hub/resources/js/forms.tsx' }, { type: 'covers', description: 'change-hub/resources/js/VideoTestSelection.tsx' });
+ info.annotations.push({ type: 'covers', description: 'resources/js/forms.tsx' }, { type: 'covers', description: 'resources/js/VideoTestSelection.tsx' });
  const data = payload(); await fixture(page, data);
  let release; const pending = new Promise(resolve => { release = resolve; });
  await page.route('**/suites/9100/tests', async route => { await pending; data.props.session.suites[0].test_catalog = [{ key: 'new', title: 'New discovered test', file: 'new.spec.ts', project: 'desktop' }]; await route.fulfill({ contentType: 'text/html', body: html(data) }); });
@@ -50,7 +50,7 @@ test('critic cycle 1: refreshing tests shows progress and preserves expanded set
 });
 
 test('critic cycle 1: failed actions retain context and can be retried', async ({ page }, info) => {
- info.annotations.push({ type: 'covers', description: 'change-hub/resources/js/forms.tsx' });
+ info.annotations.push({ type: 'covers', description: 'resources/js/forms.tsx' });
  const data = payload(); await fixture(page, data); let calls = 0;
  await page.route('**/suites/9100/tests', route => ++calls === 1 ? route.fulfill({ status: 503, body: 'Unavailable' }) : route.fulfill({ contentType: 'text/html', body: html(data) }));
  await page.getByRole('button', { name: '▸ Review workflow', exact: true }).click();
@@ -61,7 +61,7 @@ test('critic cycle 1: failed actions retain context and can be retried', async (
 });
 
 test('critic cycle 1: overview review and failure details are discoverable on mobile', async ({ page }, info) => {
- info.annotations.push({ type: 'covers', description: 'change-hub/resources/js/SuiteComparisons.tsx' }, { type: 'covers', description: 'change-hub/resources/js/TestResults.tsx' }, { type: 'covers', description: 'change-hub/resources/js/DevDetails.tsx' });
+ info.annotations.push({ type: 'covers', description: 'resources/js/SuiteComparisons.tsx' }, { type: 'covers', description: 'resources/js/TestResults.tsx' }, { type: 'covers', description: 'resources/js/DevDetails.tsx' });
  const data = payload(); const testCase = data.props.session.suites[0].runs[0].report.tests[0];
  testCase.outcome = 'unexpected'; testCase.attempts[0] = { status: 'failed', retry: 0, duration: 4935, errors: ['Expected confirmation\n' + 'Long diagnostic output\n'.repeat(25)] };
  await fixture(page, data); await page.setViewportSize({ width: 390, height: 844 });
@@ -75,7 +75,7 @@ test('critic cycle 1: overview review and failure details are discoverable on mo
 });
 
 test('critic cycle 1: live update errors preserve evidence and retry successfully', async ({ page }, info) => {
- info.annotations.push({ type: 'covers', description: 'change-hub/resources/js/app.tsx' });
+ info.annotations.push({ type: 'covers', description: 'resources/js/app.tsx' });
  const data = payload(true); let updates = 0;
  await page.route('**/sessions/9100*', route => {
   if (!route.request().isNavigationRequest() && ++updates === 1) return route.fulfill({ status: 503, body: 'Unavailable' });
@@ -90,7 +90,7 @@ test('critic cycle 1: live update errors preserve evidence and retry successfull
 });
 
 test('critic cycle 1: session badges reflect suite baselines and completed after runs', async ({ page }, info) => {
- info.annotations.push({ type: 'covers', description: 'change-hub/resources/js/app.tsx' }, { type: 'covers', description: 'change-hub/app/Http/Controllers/HubController.php' });
+ info.annotations.push({ type: 'covers', description: 'resources/js/app.tsx' }, { type: 'covers', description: 'app/Http/Controllers/HubController.php' });
  const session = payload().props.session; const project = { ...session.environment.project, environments: [], repository_path: '/workspace' };
  const data = { page: 'home', csrf: 'fixture', old: {}, errors: [], props: { projects: [project], sessions: [{ ...session, runs: [], profile: { path: '/' } }] } };
  await page.route('**/?view=projects', route => route.fulfill({ contentType: 'text/html', body: html(data) }));

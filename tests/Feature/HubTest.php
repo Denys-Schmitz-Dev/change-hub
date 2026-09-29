@@ -24,8 +24,8 @@ class HubTest extends TestCase
 
     public function test_connects_a_repository_without_starting_an_environment(): void
     {
-        $this->post(route('projects.store'), ['name' => 'Website', 'repository_path' => dirname(base_path()), 'playwright_config' => 'change-hub/playwright.config.js', 'suite_name' => 'Home', 'test_filter' => 'Home'])->assertSessionHasNoErrors()->assertRedirect();
-        $this->assertDatabaseHas('projects', ['name' => 'Website', 'repository_path' => dirname(base_path())]);
+        $this->post(route('projects.store'), ['name' => 'Website', 'repository_path' => base_path(), 'playwright_config' => 'playwright.config.js', 'suite_name' => 'Home', 'test_filter' => 'Home'])->assertSessionHasNoErrors()->assertRedirect();
+        $this->assertDatabaseHas('projects', ['name' => 'Website', 'repository_path' => base_path()]);
         $this->assertDatabaseCount('environments', 0);
     }
 

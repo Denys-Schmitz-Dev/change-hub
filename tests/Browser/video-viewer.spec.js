@@ -21,7 +21,7 @@ async function videoFixture(browser, info) {
 }
 
 test('video cleanup: one toolbar, maximized single views and fullscreen playback', async ({ page, browser }, info) => {
- info.annotations.push({ type: 'covers', description: 'change-hub/resources/js/SuiteVideos.tsx' }, { type: 'covers', description: 'change-hub/resources/js/FullscreenComparison.tsx' }, { type: 'covers', description: 'change-hub/resources/css/hub.css' });
+ info.annotations.push({ type: 'covers', description: 'resources/js/SuiteVideos.tsx' }, { type: 'covers', description: 'resources/js/FullscreenComparison.tsx' }, { type: 'covers', description: 'resources/css/hub.css' });
  const data = payload();
  const original = data.props.session.baseline.runs[0];
  data.props.session.baseline.runs.unshift({ ...original, id: 70, config: 'another.config.js', artifact_base: '/sessions/9300/baseline-artifacts/70/__FILE__' });
@@ -55,7 +55,7 @@ test('video cleanup: one toolbar, maximized single views and fullscreen playback
 });
 
 test('video cleanup: new tests reuse existing component or default session baseline references', async ({ page, browser }, info) => {
- info.annotations.push({ type: 'covers', description: 'change-hub/resources/js/SuiteVideos.tsx' }, { type: 'covers', description: 'change-hub/resources/js/SuiteComparisons.tsx' });
+ info.annotations.push({ type: 'covers', description: 'resources/js/SuiteVideos.tsx' }, { type: 'covers', description: 'resources/js/SuiteComparisons.tsx' });
  const video = await videoFixture(browser, info);
  const data = payload(example('new-home', 'New test for existing component', ['src/Home.tsx']));
  await render(page, data, video);
